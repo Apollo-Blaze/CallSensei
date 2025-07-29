@@ -1,9 +1,11 @@
 // callsensei/src/components/Sidebar.tsx
 import React, { useEffect, useRef } from "react";
-import ActivityList from "./ActivityList";
+import {ActivityList} from "./ActivityList";
 import { useDispatch, useSelector } from "react-redux";
-import { addRequest } from "../../state/activitiesSlice";
+import { addActivity } from "../../state/activitiesSlice";
+import type { RequestModel } from "../../models";
 import type { RequestMethod } from "../../models";
+import  type { ActivityModel } from "../../models/ActivityModel";
 
 interface SidebarProps {
     onSelect: (id: string) => void;
@@ -19,8 +21,23 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelect, selectedId }) => {
     // Ensure at least one activity exists
     useEffect(() => {
         if (!initialized.current && activities.length === 0 && !selectedId) {
-            const newReq = { method: "GET" as RequestMethod, url: "", headers: {}, body: "" };
-            dispatch(addRequest(newReq));
+            const newReq: RequestModel = {
+                id: crypto.randomUUID(),
+                method: "GET",
+                url: "",
+                headers: {},
+                body: "",
+                timestamp: new Date().toISOString(),
+                name: "New Request"
+              };
+              const newActivity = {
+                id: newReq.id,
+                name: newReq.name ? newReq.name : "",
+                url: newReq.url,
+                request: newReq,
+                
+              };
+           dispatch(addActivity(newActivity));
             initialized.current = true;
         }
     }, [activities.length, dispatch, selectedId]);
@@ -44,9 +61,24 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelect, selectedId }) => {
     }, [activities, selectedId, onSelect]);
 
     const handleNewActivity = () => {
-        const newReq = { method: "GET" as RequestMethod, url: "", headers: {}, body: "" };
+        const newReq: RequestModel = {
+            id: crypto.randomUUID(),
+            method: "GET",
+            url: "",
+            headers: {},
+            body: "",
+            timestamp: new Date().toISOString(),
+            name: "New Request"
+          };
         console.log('Creating new activity...');
-        dispatch(addRequest(newReq));
+        const newActivity = {
+            id: newReq.id,
+            name: newReq.name ? newReq.name : "",
+            url: newReq.url,
+            request: newReq,
+            
+          };
+        dispatch(addActivity(newActivity));
         // The auto-selection useEffect will handle selecting the new activity
     };
     return (

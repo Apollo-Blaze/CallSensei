@@ -1,13 +1,13 @@
 import React from "react";
 import { useDispatch } from "react-redux";
-import { duplicateRequest, deleteRequest, renameActivity } from "../../../state/activitiesSlice";
-import type { RequestModel } from "../../../models";
+import { duplicateActivity, deleteActivity, renameActivity } from "../../../state/activitiesSlice";
+import type { ActivityModel } from "../../../models/ActivityModel";
 import ActivityMenu from "./ActivityMenu";
 import ActivityName from "./ActivityName";
 import { activityStyles } from "./ActivityStyles";
 
 interface ActivityCardProps {
-    activity: RequestModel;
+    activity: ActivityModel;
     selectedId: string | null;
     onSelect: (id: string) => void;
     onDuplicate?: (originalId: string) => void;
@@ -33,7 +33,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
     const handleDuplicate = () => {
         const originalId = activity.id;
         console.log('Duplicating activity:', originalId);
-        dispatch(duplicateRequest(activity.id));
+        dispatch(duplicateActivity(activity.id));
 
         // Notify parent component to handle duplicate selection
         if (onDuplicate) {
@@ -44,7 +44,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
     };
 
     const handleDelete = () => {
-        dispatch(deleteRequest(activity.id));
+        dispatch(deleteActivity(activity.id));
     };
 
     const isSelected = selectedId === activity.id;

@@ -25,10 +25,12 @@ const RequestForm: React.FC<{
     } = useRequestFormState(selectedId);
 
     const handleSubmit = async (e: React.FormEvent) => {
+        console.log("selected id",selectedId);
         e.preventDefault();
 
         let parsedHeaders = {};
         try {
+            console.log(headers);
             parsedHeaders = JSON.parse(headers);
         } catch {
             alert("Headers must be valid JSON");

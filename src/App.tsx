@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import Sidebar from "./components/sidebar/Sidebar";
 import MainWindow from "./components/MainWindow";
 
+
+
 const App: React.FC = () => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [aiExplanation, setAIExplanation] = useState<string>("");

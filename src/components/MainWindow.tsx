@@ -1,5 +1,7 @@
-import React from "react";
+import React, { useState } from "react";
+import Navbar from "./Navbar";
 import AIExplanation from "./ai/AIExplanation";
+import AIPanel from "./ai/AIPanel";
 import RequestForm from "./request/RequestForm";
 import ResponseViewer from "./response/ResponseViewer";
 
@@ -14,13 +16,30 @@ const MainWindow: React.FC<MainWindowProps> = ({
     setAIExplanation,
     aiExplanation
 }) => {
+    const [isAIPanelOpen, setIsAIPanelOpen] = useState(false);
+
+    const handleAIClick = () => {
+        setIsAIPanelOpen(!isAIPanelOpen);
+    };
+
+    const handleCloseAIPanel = () => {
+        setIsAIPanelOpen(false);
+    };
+
     return (
-        <main className="flex-1 p-8 overflow-auto">
-            <h1 className="text-2xl font-bold mb-6">API Testing Tool</h1>
-            <RequestForm selectedId={selectedId} setAIExplanation={setAIExplanation} />
-            <ResponseViewer />
-            <AIExplanation explanation={aiExplanation} />
-        </main>
+        <div className="flex flex-col h-full w-full">
+            <Navbar onAIClick={handleAIClick} isAIPanelOpen={isAIPanelOpen} />
+            <div className="flex flex-1 overflow-hidden">
+                <main className={`tour-main-content flex-1 p-8 overflow-auto custom-scrollbar transition-all duration-300 ease-in-out ${
+                    isAIPanelOpen ? 'mr-0' : 'mr-0'
+                }`}>
+                    <RequestForm selectedId={selectedId} setAIExplanation={setAIExplanation} />
+                    <ResponseViewer />
+                    <AIExplanation explanation={aiExplanation} />
+                </main>
+                <AIPanel isOpen={isAIPanelOpen} onClose={handleCloseAIPanel} />
+            </div>
+        </div>
     );
 };
 

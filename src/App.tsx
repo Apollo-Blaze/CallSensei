@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import Sidebar from "./components/sidebar/Sidebar";
-import MainWindow from "./components/MainWindow";
+import MainWindow from "./components/window/MainWindow";
 
 
 

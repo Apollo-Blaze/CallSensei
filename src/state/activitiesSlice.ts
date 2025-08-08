@@ -1,25 +1,11 @@
 import { createSlice } from '@reduxjs/toolkit';
 import type { PayloadAction } from '@reduxjs/toolkit';
-
-export type RequestItem = {
-    id: string;
-    method: string;
-    url: string;
-    headers: Record<string, string>;
-    body: string;
-    name?: string;
-};
-
-export type ResponseData = {
-    status: number;
-    statusText: string;
-    headers: Record<string, string>;
-    body: string;
-};
+import type { RequestModel, ResponseModel } from '../models';
+import { createRequest, createResponse } from '../models';
 
 interface ActivitiesState {
-    activities: RequestItem[];
-    latestResponse: ResponseData | null;
+    activities: RequestModel[];
+    latestResponse: ResponseModel | null;
 }
 
 const initialState: ActivitiesState = {
@@ -31,22 +17,33 @@ const activitiesSlice = createSlice({
     name: 'activities',
     initialState,
     reducers: {
-        addRequest: (state, action: PayloadAction<Omit<RequestItem, 'id'>>) => {
-            state.activities.push({ ...action.payload, id: Math.random().toString(36).substr(2, 9), name: 'New Window' });
+        addRequest: (state, action: PayloadAction<Omit<RequestModel, 'id' | 'timestamp'>>) => {
+            const newRequest = createRequest(action.payload);
+            state.activities.push(newRequest);
         },
         duplicateRequest: (state, action: PayloadAction<string>) => {
             const orig = state.activities.find(a => a.id === action.payload);
             if (orig) {
-                state.activities.push({ ...orig, id: Math.random().toString(36).substr(2, 9), name: (orig.name || 'Request') + ' (copy)' });
+                const duplicatedRequest = createRequest({
+                    method: orig.method,
+                    url: orig.url,
+                    headers: { ...orig.headers }, // Create a new object to avoid reference sharing
+                    body: orig.body,
+                    name: (orig.name || 'Request') + ' (copy)',
+                    description: orig.description,
+                    tags: orig.tags ? [...orig.tags] : [], // Create a new array to avoid reference sharing
+                    isActive: orig.isActive,
+                });
+                state.activities.push(duplicatedRequest);
             }
         },
         deleteRequest: (state, action: PayloadAction<string>) => {
             state.activities = state.activities.filter(a => a.id !== action.payload);
         },
-        setLatestResponse: (state, action: PayloadAction<ResponseData | null>) => {
+        setLatestResponse: (state, action: PayloadAction<ResponseModel | null>) => {
             state.latestResponse = action.payload;
         },
-        updateActivity: (state, action: PayloadAction<{ id: string; data: Partial<Omit<RequestItem, 'id'>> }>) => {
+        updateActivity: (state, action: PayloadAction<{ id: string; data: Partial<Omit<RequestModel, 'id' | 'timestamp'>> }>) => {
             const activity = state.activities.find(a => a.id === action.payload.id);
             if (activity) {
                 Object.assign(activity, action.payload.data);

@@ -37,16 +37,29 @@ const activitiesSlice = createSlice({
       console.log("renameing");
       const activity = state.activities.find(a => a.id === action.payload.id);
       if (activity) {
-        console.log("entered inside of renaming if");
+        console.log("entered inside of renaming if" + action.payload.name);
         activity.request.name = action.payload.name;
       }
     },
-    updateActivity(state, action: PayloadAction<{ id: string; data: Partial<ActivityModel>}>) {
+     updateActivity(state, action: PayloadAction<{ id: string; data: Partial<ActivityModel>}>) {
       const activity = state.activities.find(a => a.id === action.payload.id);
+
       if (activity) {
+        console.log("Before update:", activity);
         Object.assign(activity, action.payload.data);
+        console.log("After update:", activity);
       }
     },
+    
+    //immutable update
+    // updateActivity(state, action: PayloadAction<{ id: string; data: Partial<ActivityModel> }>) {
+    //   console.log("updateActivity\n");
+    //   state.activities = state.activities.map(activity =>
+    //     activity.id === action.payload.id
+    //       ? { ...activity, ...action.payload.data }
+    //       : activity
+    //   );
+    // }
   },
 });
 

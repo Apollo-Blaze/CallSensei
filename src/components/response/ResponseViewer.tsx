@@ -4,13 +4,23 @@ import type { RootState } from "../../state/store";
 import type { ActivityModel } from "../../models/ActivityModel";
 
 const ResponseViewer: React.FC = () => {
-  const selectedActivity = useSelector((state: RootState) =>
-    state.activities.activities.find(
-      (activity: ActivityModel) => activity.id === state.activities.selectedActivityId
-    )
-  );
+  console.log("response viewer rendered");
+  const selectedActivityId = useSelector((state: RootState) => state.activities.selectedActivityId);
+const activities = useSelector((state: RootState) => state.activities.activities);
+const selectedActivity = activities.find((activity: ActivityModel) => activity.id === selectedActivityId);
+
+console.log("SelectedActivityId:", selectedActivityId);
+console.log("Available activities:", activities.map(a => a.id));
+console.log("Matched activity:", selectedActivity?.id);
+  
+
+  console.log("selectedActivity inside response viewer",selectedActivity?.id);
 
   if (!selectedActivity || !selectedActivity.response) {
+
+    console.log("no response yet if inside response viewer");
+    console.log("selectedActivity inside response viewer",selectedActivity?.id);
+    console.log("selectedActivityId inside response viewer",selectedActivity?.response?.status.toString());
     return <div className="bg-darkblue-light p-4 rounded">No response yet.</div>;
   }
 

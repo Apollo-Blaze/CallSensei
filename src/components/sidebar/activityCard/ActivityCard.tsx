@@ -1,15 +1,17 @@
 import React from "react";
 import { useDispatch } from "react-redux";
-import { duplicateActivity, deleteActivity, renameActivity } from "../../../state/activitiesSlice";
+import { duplicateActivity, deleteActivity, renameActivity, setSelectedActivity } from "../../../state/activitiesSlice";
 import type { ActivityModel } from "../../../models/ActivityModel";
 import ActivityMenu from "./ActivityMenu";
 import ActivityName from "./ActivityName";
 import { activityStyles } from "./ActivityStyles";
+import { useSelector } from "react-redux";
+import type { RootState } from "../../../state/store";
 
 interface ActivityCardProps {
     activity: ActivityModel;
     selectedId: string | null;
-    onSelect: (id: string) => void;
+     onSelect: (id: string) => void;
     onDuplicate?: (originalId: string) => void;
 }
 
@@ -20,12 +22,13 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
     onDuplicate
 }) => {
     const dispatch = useDispatch();
-
+    const selectedActivityId = useSelector((state: RootState) => state.activities.selectedActivityId);
     const handleCardClick = () => {
+        dispatch(setSelectedActivity(activity.id));
         console.log('Selecting activity:', activity.id, 'Current selectedId:', selectedId);
-        onSelect(activity.id);
+       // onSelect(activity.id);
     };
-
+   
     const handleRename = (id: string, newName: string) => {
         dispatch(renameActivity({ id, name: newName }));
     };
@@ -47,7 +50,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
         dispatch(deleteActivity(activity.id));
     };
 
-    const isSelected = selectedId === activity.id;
+    const isSelected = selectedActivityId === activity.id;
     const displayName = activity.name || activity.url || activity.id;
 
     return (

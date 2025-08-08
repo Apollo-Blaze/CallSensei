@@ -1,9 +1,9 @@
 import React, { useState } from "react";
-import Navbar from "./Navbar";
+import Navbar from "../Navbar";
 import AIExplanation from "./ai/AIExplanation";
 import AIPanel from "./ai/AIPanel";
-import RequestForm from "./request/RequestForm";
-import ResponseViewer from "./response/ResponseViewer";
+import RequestForm from "../request/RequestForm";
+import ResponseViewer from "../response/ResponseViewer";
 
 interface MainWindowProps {
     selectedId: string | null;

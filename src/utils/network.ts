@@ -19,7 +19,7 @@ interface NetworkUtils {
         setAIExplanation: (explanation: string) => void
     ) => Promise<void>;
 }
-
+ 
 export const networkUtils: NetworkUtils = {
     sendHttpRequest: async (
         reqData: RequestData,

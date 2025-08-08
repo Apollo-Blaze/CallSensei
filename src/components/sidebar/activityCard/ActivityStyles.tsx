@@ -2,7 +2,7 @@
 export const activityStyles = {
     // Card styles
     card: {
-        base: "mb-1 rounded cursor-pointer",
+        base: "w-full p-1 border-b border-gray-600 transition duration-150 ease-in-out hover:bg-gray-800 cursor-pointer",
         selected: "bg-[#24243af8] text-white",
         unselected: "bg-accent"
     },
@@ -23,7 +23,7 @@ export const activityStyles = {
 
     // Name styles
     name: {
-        display: "block font-medium text-sm truncate max-w-full px-1 cursor-text"
+        display: "block font-bold text-sm truncate max-w-full px-1 cursor-text"
     }
 } as const;
 

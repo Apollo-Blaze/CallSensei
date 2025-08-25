@@ -1,0 +1,29 @@
+{
+    "extends": "./tsconfig.json",
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "ESNext",
+        "moduleResolution": "Bundler",
+        "lib": [
+            "ES2022",
+            "DOM",
+            "DOM.Iterable"
+        ],
+        "types": [
+            "electron"
+        ],
+        "strict": true,
+        "noEmit": false,
+        "emitDeclarationOnly": false,
+        "sourceMap": true,
+        "rootDir": "electron",
+        "outDir": "electron"
+    },
+    "include": [
+        "electron/**/*.ts"
+    ],
+    "exclude": [
+        "node_modules",
+        "dist"
+    ]
+}

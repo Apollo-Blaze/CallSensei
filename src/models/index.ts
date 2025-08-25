@@ -1,6 +1,7 @@
 // Export all models
 export * from './RequestModel';
 export * from './ResponseModel';
+export * from './FolderModel';
 
 // Re-export commonly used types
 export type { RequestModel, RequestFormData, CreateRequestData, UpdateRequestData } from './RequestModel';

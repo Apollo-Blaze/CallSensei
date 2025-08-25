@@ -7,6 +7,7 @@ export interface ActivityModel {
   url: string;
   request: RequestModel;
   response?: ResponseModel;
+  parentId?: string; // optional folder or parent activity id
 }
 
 export function createActivity(
@@ -14,7 +15,8 @@ export function createActivity(
   name: string,
   url:string,
   request: RequestModel,
-  response?: ResponseModel
+  response?: ResponseModel,
+  parentId?: string
 ): ActivityModel {
   return {
 
@@ -23,5 +25,6 @@ export function createActivity(
     url: url || request.url || '',
     request,
     response,
+    parentId,
   };
 } 

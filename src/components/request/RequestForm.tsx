@@ -7,10 +7,12 @@ import MethodSelect from "./MethodSelect";
 import UrlInput from "./UrlInput";
 import "./RequestForm.css";
 
+// import type { RootState } from "../../state/store";
+
 const RequestForm: React.FC<{
     selectedId: string | null;
     setAIExplanation: (s: string) => void;
-}> = ({ selectedId, setAIExplanation }) => {
+}> = ({ selectedId: _selectedId, setAIExplanation }) => {
     const dispatch = useDispatch();
     const {
         method,
@@ -22,34 +24,47 @@ const RequestForm: React.FC<{
         body,
         setBody,
         activity
-    } = useRequestFormState(selectedId);
+    } = useRequestFormState();
 
     const handleSubmit = async (e: React.FormEvent) => {
-        console.log("selected id",selectedId);
         e.preventDefault();
 
-        let parsedHeaders = {};
+        let parsedHeaders: Record<string, string> = {};
         try {
-            console.log(headers);
-            parsedHeaders = JSON.parse(headers);
+            parsedHeaders = headers ? JSON.parse(headers) : {};
         } catch {
             alert("Headers must be valid JSON");
             return;
         }
+        
+        const reqData = {
+            method,
+            url,
+            headers: parsedHeaders,
+            body
+        };
 
-        const reqData = { method, url, headers: parsedHeaders, body };
-
-        // Update the activity
         if (activity && activity.id) {
-            dispatch(updateActivity({ id: activity.id, data: reqData }));
+            dispatch(updateActivity({
+                id: activity.id,
+                data: {
+                    url,
+                    request: {
+                        ...activity.request,
+                        method,
+                        url,
+                        headers: parsedHeaders,
+                        body
+                    }
+                }
+            }));
         }
 
-        // Send the request using the network utility
         await networkUtils.sendHttpRequest(
             reqData,
             activity?.id,
             activity?.name,
-            dispatch,
+            dispatch as any,
             setAIExplanation
         );
     };

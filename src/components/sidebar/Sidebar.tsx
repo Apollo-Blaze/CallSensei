@@ -2,10 +2,10 @@
 import React, { useEffect, useRef } from "react";
 import {ActivityList} from "./ActivityList";
 import { useDispatch, useSelector } from "react-redux";
-import { addActivity } from "../../state/activitiesSlice";
+import { addActivity, addFolder } from "../../state/activitiesSlice";
 import type { RequestModel } from "../../models";
-import type { RequestMethod } from "../../models";
-import  type { ActivityModel } from "../../models/ActivityModel";
+// import type { RequestMethod } from "../../models";
+// import  type { ActivityModel } from "../../models/ActivityModel";
 
 interface SidebarProps {
     onSelect: (id: string) => void;
@@ -85,14 +85,24 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelect, selectedId }) => {
         <aside className="w-64 bg-[#14142bf8] p-4 border-r-1 border-b-cyan-600">
             <div className="flex items-center border-b justify-between mb-2 pb-2">
                 <h2 className="text-xl font-bold text-accent  border-gray-300 pb-2 mb-0">Activities</h2>
-                <button
-                    className="ml-2 bg-accent text-white px-2 py-1 rounded text-xs font-semibold border border-gray-300 hover:bg-cyan-800 transition"
-                    style={{ height: '2rem' }}
-                    onClick={handleNewActivity}
-                    title="New Activity"
-                >
-                    +
-                </button>
+                <div className="flex gap-2">
+                    <button
+                        className="ml-2 bg-accent text-white px-2 py-1 rounded text-xs font-semibold border border-gray-300 hover:bg-cyan-800 transition"
+                        style={{ height: '2rem' }}
+                        onClick={handleNewActivity}
+                        title="New Activity"
+                    >
+                        +
+                    </button>
+                    <button
+                        className="ml-2 bg-accent text-white px-2 py-1 rounded text-xs font-semibold border border-gray-300 hover:bg-cyan-800 transition"
+                        style={{ height: '2rem' }}
+                        onClick={() => dispatch(addFolder(undefined))}
+                        title="New Folder"
+                    >
+                        📁
+                    </button>
+                </div>
             </div>
             <ActivityList onSelect={onSelect} selectedId={selectedId} />
         </aside>

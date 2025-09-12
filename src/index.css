@@ -82,3 +82,58 @@ body {
   }
 }
 
+/* Custom Scrollbar Styles */
+@layer utilities {
+  /* Webkit browsers (Chrome, Safari, Edge) */
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: white;
+    border-radius: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #e5e5e5;
+  }
+
+  /* Firefox */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: white transparent;
+  }
+}
+
+/* React Tour Selectors */
+@layer components {
+  /* You can target these specific selectors with React Tour */
+  .tour-navbar {
+    /* This will be a specific selector for React Tour */
+  }
+  
+  .tour-ai-button {
+    /* AI button selector for React Tour */
+  }
+  
+  .tour-main-content {
+    /* Main content area selector for React Tour */
+  }
+  
+  .tour-ai-panel {
+    /* AI panel selector for React Tour */
+  }
+  
+  .tour-request-form {
+    /* Request form selector for React Tour */
+  }
+  
+  .tour-response-viewer {
+    /* Response viewer selector for React Tour */
+  }
+}
+

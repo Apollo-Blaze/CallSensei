@@ -1,6 +1,7 @@
 import React from "react";
 import { useSelector } from "react-redux";
 import type { RootState } from "../../state/store";
+
 import type { ActivityModel } from "../../models/ActivityModel";
 
 const ResponseViewer: React.FC = () => {
@@ -39,6 +40,7 @@ console.log("Matched activity:", selectedActivity?.id);
       </div>
     </div>
   );
+
 };
 
-export default ResponseViewer; 
+export default ResponseViewer;

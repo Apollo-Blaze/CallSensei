@@ -1,8 +1,14 @@
-import React, { useEffect, useRef, useState } from "react";
-import ActivityList from "./ActivityList";
+
+// callsensei/src/components/Sidebar.tsx
+import React, { useEffect, useRef } from "react";
+import {ActivityList} from "./ActivityList";
+
+
 import { useDispatch, useSelector } from "react-redux";
-import { addRequest } from "../../state/activitiesSlice";
-import type { RequestMethod } from "../../models";
+import { addActivity, addFolder } from "../../state/activitiesSlice";
+import type { RequestModel } from "../../models";
+// import type { RequestMethod } from "../../models";
+// import  type { ActivityModel } from "../../models/ActivityModel";
 
 interface SidebarProps {
     onSelect: (id: string) => void;
@@ -22,8 +28,23 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelect, selectedId }) => {
     // Ensure at least one activity exists
     useEffect(() => {
         if (!initialized.current && activities.length === 0 && !selectedId) {
-            const newReq = { method: "GET" as RequestMethod, url: "", headers: {}, body: "" };
-            dispatch(addRequest(newReq));
+            const newReq: RequestModel = {
+                id: crypto.randomUUID(),
+                method: "GET",
+                url: "",
+                headers: {},
+                body: "",
+                timestamp: new Date().toISOString(),
+                name: "New Request"
+              };
+              const newActivity = {
+                id: newReq.id,
+                name: newReq.name ? newReq.name : "",
+                url: newReq.url,
+                request: newReq,
+                
+              };
+           dispatch(addActivity(newActivity));
             initialized.current = true;
         }
     }, [activities.length, dispatch, selectedId]);
@@ -43,9 +64,27 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelect, selectedId }) => {
 
     // Handle creating new activity
     const handleNewActivity = () => {
-        const newReq = { method: "GET" as RequestMethod, url: "", headers: {}, body: "" };
+        const newReq: RequestModel = {
+            id: crypto.randomUUID(),
+            method: "GET",
+            url: "",
+            headers: {},
+            body: "",
+            timestamp: new Date().toISOString(),
+            name: "New Request"
+          };
         console.log('Creating new activity...');
-        dispatch(addRequest(newReq));
+
+        const newActivity = {
+            id: newReq.id,
+            name: newReq.name ? newReq.name : "",
+            url: newReq.url,
+            request: newReq,
+            
+          };
+        dispatch(addActivity(newActivity));
+        // The auto-selection useEffect will handle selecting the new activity
+
     };
 
     useEffect(() => {
@@ -85,14 +124,12 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelect, selectedId }) => {
     
 
     return (
-        <div
-            ref={sidebarRef}
-            className="relative h-full border-r bg-[#14142bf8]"
-            style={{ width }}
-        >
-            <div className="p-4">
-                <div className="flex items-center border-b justify-between mb-2 pb-2">
-                    <h2 className="text-xl font-bold text-accent border-gray-300 pb-2 mb-0">Activities</h2>
+
+        <aside className="w-64 bg-[#14142bf8] p-4 border-r-1 border-b-cyan-600">
+            <div className="flex items-center border-b justify-between mb-2 pb-2">
+                <h2 className="text-xl font-bold text-accent  border-gray-300 pb-2 mb-0">Activities</h2>
+                <div className="flex gap-2">
+
                     <button
                         className="ml-2 bg-accent text-white px-2 py-1 rounded text-xs font-semibold border border-gray-300 hover:bg-cyan-800 transition"
                         style={{ height: '2rem' }}
@@ -101,8 +138,17 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelect, selectedId }) => {
                     >
                         +
                     </button>
+
+                    <button
+                        className="ml-2 bg-accent text-white px-2 py-1 rounded text-xs font-semibold border border-gray-300 hover:bg-cyan-800 transition"
+                        style={{ height: '2rem' }}
+                        onClick={() => dispatch(addFolder(undefined))}
+                        title="New Folder"
+                    >
+                        📁
+                    </button>
                 </div>
-                <ActivityList onSelect={onSelect} selectedId={selectedId} />
+
             </div>
 
             {/* Resizer Handle */}

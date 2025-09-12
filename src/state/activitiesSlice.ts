@@ -41,7 +41,12 @@ const activitiesSlice = createSlice({
       const activity = state.activities.find(a => a.id === action.payload.id);
       if (activity) {
         console.log("entered inside of renaming if" + action.payload.name);
-        activity.request.name = action.payload.name;
+        // Update the activity's display name
+        activity.name = action.payload.name;
+        // Keep request name in sync if present
+        if (activity.request) {
+          activity.request.name = action.payload.name;
+        }
       }
     },
     addFolder(state, action: PayloadAction<Partial<FolderModel> | undefined>) {
@@ -55,15 +60,27 @@ const activitiesSlice = createSlice({
       }
     },
     deleteFolder(state, action: PayloadAction<string>) {
-      const folderId = action.payload;
-      // Move children to root before deleting folder
-      state.activities.forEach(a => {
-        if (a.parentId === folderId) a.parentId = undefined;
-      });
-      state.folders.forEach(f => {
-        if (f.parentId === folderId) f.parentId = undefined;
-      });
-      state.folders = state.folders.filter(f => f.id !== folderId);
+      const rootFolderId = action.payload;
+
+      // Collect all descendant folder ids (including the folder itself)
+      const idsToDelete = new Set<string>();
+      idsToDelete.add(rootFolderId);
+
+      const collectDescendants = (parentId: string) => {
+        state.folders.forEach(f => {
+          if (f.parentId === parentId) {
+            idsToDelete.add(f.id);
+            collectDescendants(f.id);
+          }
+        });
+      };
+      collectDescendants(rootFolderId);
+
+      // Delete all activities that are inside any of the folders to delete
+      state.activities = state.activities.filter(a => !(a.parentId && idsToDelete.has(a.parentId)));
+
+      // Delete the folders themselves
+      state.folders = state.folders.filter(f => !idsToDelete.has(f.id));
     },
     moveNode(
       state,

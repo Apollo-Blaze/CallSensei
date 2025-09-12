@@ -26,6 +26,52 @@ const RequestForm: React.FC<{
         activity
     } = useRequestFormState();
 
+    // Keep track of last valid parsed headers to avoid losing data while typing invalid JSON
+    const lastValidHeadersRef = React.useRef<Record<string, string>>({});
+
+    // Initialize last valid headers when activity changes
+    React.useEffect(() => {
+        if (activity?.request?.headers) {
+            lastValidHeadersRef.current = activity.request.headers;
+        } else {
+            lastValidHeadersRef.current = {};
+        }
+    }, [activity]);
+
+    // Autosave on change (debounced)
+    React.useEffect(() => {
+        if (!activity?.id) return;
+
+        const handle = setTimeout(() => {
+            let parsedHeaders: Record<string, string> = lastValidHeadersRef.current || {};
+            try {
+                parsedHeaders = headers ? JSON.parse(headers) : {};
+                lastValidHeadersRef.current = parsedHeaders;
+            } catch {
+                // Keep last valid headers if current JSON is invalid
+                parsedHeaders = lastValidHeadersRef.current || {};
+            }
+
+            const nextRequest = {
+                ...activity.request,
+                method,
+                url,
+                headers: parsedHeaders,
+                body
+            };
+
+            dispatch(updateActivity({
+                id: activity.id,
+                data: {
+                    url,
+                    request: nextRequest
+                }
+            }));
+        }, 300);
+
+        return () => clearTimeout(handle);
+    }, [method, url, headers, body, activity, dispatch]);
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 

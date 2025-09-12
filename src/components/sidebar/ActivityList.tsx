@@ -4,7 +4,7 @@ import type { RootState } from "../../state/store";
 import ActivityCard from "./activityCard/ActivityCard";
 import type { ActivityModel } from "../../models/ActivityModel";
 import type { FolderModel } from "../../models/FolderModel";
-import { moveNode, deleteFolder } from "../../state/activitiesSlice";
+import { moveNode, deleteFolder, renameFolder } from "../../state/activitiesSlice";
 
 interface ActivityListProps {
     onSelect: (id: string) => void;
@@ -16,6 +16,8 @@ export function ActivityList({ onSelect, selectedId }: ActivityListProps) {
     const activities = useSelector((state: RootState) => state.activities.activities);
     const folders = useSelector((state: RootState) => state.activities.folders);
     const [collapsed, setCollapsed] = useState<Set<string>>(new Set()); // empty = all expanded
+    const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
+    const [folderEditValue, setFolderEditValue] = useState<string>("");
 
     const handleDuplicate = (originalId: string) => {
         const latestActivity = activities[activities.length - 1];
@@ -81,6 +83,20 @@ export function ActivityList({ onSelect, selectedId }: ActivityListProps) {
         e.preventDefault();
     };
 
+    const commitFolderRename = (folderId: string) => {
+        const trimmed = folderEditValue.trim();
+        if (trimmed) {
+            dispatch(renameFolder({ id: folderId, name: trimmed }));
+        }
+        setEditingFolderId(null);
+        setFolderEditValue("");
+    };
+
+    const cancelFolderRename = (originalName: string) => {
+        setEditingFolderId(null);
+        setFolderEditValue(originalName);
+    };
+
     const renderFolder = (folder?: FolderModel) => {
         const key = folder ? folder.id : 'root';
         const bucket = tree[key] || { folders: [], activities: [] };
@@ -106,16 +122,36 @@ export function ActivityList({ onSelect, selectedId }: ActivityListProps) {
                         >
                             {collapsed.has(folder.id) ? '▶' : '▼'}
                         </button>
-                        <span
-                            draggable
-                            onDragStart={(e) => {
-                                e.dataTransfer.setData('type', 'folder');
-                                e.dataTransfer.setData('id', folder.id);
-                            }}
-                            title="Drag to move folder"
-                        >
-                            📁 {folder.name}
-                        </span>
+                        {editingFolderId === folder.id ? (
+                            <input
+                                className="bg-transparent border-b border-gray-500 focus:outline-none px-1"
+                                value={folderEditValue}
+                                autoFocus
+                                onChange={(e) => setFolderEditValue(e.target.value)}
+                                onBlur={() => commitFolderRename(folder.id)}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter') commitFolderRename(folder.id);
+                                    else if (e.key === 'Escape') cancelFolderRename(folder.name);
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                            />
+                        ) : (
+                            <span
+                                draggable
+                                onDragStart={(e) => {
+                                    e.dataTransfer.setData('type', 'folder');
+                                    e.dataTransfer.setData('id', folder.id);
+                                }}
+                                title="Double-click to rename. Drag to move folder"
+                                onDoubleClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingFolderId(folder.id);
+                                    setFolderEditValue(folder.name);
+                                }}
+                            >
+                                📁 {folder.name}
+                            </span>
+                        )}
                         <button
                             className="text-xs text-red-400 hover:text-red-300 ml-auto"
                             onClick={(ev) => { ev.stopPropagation(); dispatch(deleteFolder(folder.id)); }}

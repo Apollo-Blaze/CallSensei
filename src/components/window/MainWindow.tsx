@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Navbar from "../Navbar";
+import PatchReview from "./ai/PatchReview";
 import AIExplanation from "./ai/AIExplanation";
 import AIPanel from "./ai/AIPanel";
 import RequestForm from "../request/RequestForm";
@@ -17,6 +18,7 @@ const MainWindow: React.FC<MainWindowProps> = ({
     aiExplanation
 }) => {
     const [isAIPanelOpen, setIsAIPanelOpen] = useState(false);
+    const [isPatchOpen, setIsPatchOpen] = useState(false);
 
     const handleAIClick = () => {
         setIsAIPanelOpen(!isAIPanelOpen);
@@ -28,13 +30,18 @@ const MainWindow: React.FC<MainWindowProps> = ({
 
     return (
         <div className="flex flex-col h-full w-full">
-            <Navbar onAIClick={handleAIClick} isAIPanelOpen={isAIPanelOpen} />
+            <Navbar onAIClick={handleAIClick} isAIPanelOpen={isAIPanelOpen} onPatchClick={() => setIsPatchOpen(!isPatchOpen)} />
             <div className="flex flex-1 overflow-hidden">
                 <main className={`tour-main-content flex-1 p-8 overflow-hidden flex flex-col custom-scrollbar transition-all duration-300 ease-in-out ${isAIPanelOpen ? 'mr-0' : 'mr-0'}`}>
                     <div className="flex-1 min-h-0 overflow-auto  min-w-0">
                         <RequestForm selectedId={selectedId} setAIExplanation={setAIExplanation} />
                         <ResponseViewer />
                         <AIExplanation explanation={aiExplanation} />
+                        {isPatchOpen && (
+                            <div className="mt-6">
+                                <PatchReview />
+                            </div>
+                        )}
                     </div>
                 </main>
                 <AIPanel isOpen={isAIPanelOpen} onClose={handleCloseAIPanel} />

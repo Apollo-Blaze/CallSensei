@@ -1,8 +1,10 @@
 import type { Dispatch } from 'redux';
 import type { RequestMethod } from '../models';
-import { createResponse, calculateResponseSize, extractContentType, isSuccessfulResponse } from '../models';
-import { updateActivity, renameActivity, setLatestResponse } from '../state/activitiesSlice';
-
+import { calculateResponseSize, extractContentType, isSuccessfulResponse} from '../models';
+import type {ResponseModel} from '../models';
+import { updateActivity , renameActivity } from '../state/activitiesSlice';
+import {createResponse} from '../models';
+import { createActivity } from '../models/ActivityModel';
 interface RequestData {
     method: RequestMethod;
     url: string;
@@ -45,7 +47,10 @@ export const networkUtils: NetworkUtils = {
                 body: ["POST", "PUT", "PATCH"].includes(reqData.method) ? reqData.body : undefined,
             });
 
+            console.log("after fetch inside network util");
+
             const resBody = await res.text();
+            console.log("response body",resBody);
             const responseHeaders = Object.fromEntries(res.headers.entries());
             const contentType = extractContentType(responseHeaders);
             const responseSize = calculateResponseSize(resBody);
@@ -64,17 +69,37 @@ export const networkUtils: NetworkUtils = {
                 isSuccess: isSuccessfulResponse(res.status),
             });
 
-            // Update Redux state
-            dispatch(setLatestResponse(responseData));
+            const activityData = {
+                response :responseData
+            };
+            console.log("activityData being dispatched", activityData);
+            
+
+
+            console.log("just before dispatching");
+            dispatch(updateActivity({
+                id: activityId!, // or the activity id
+                data: activityData
+              }));
+
+            // dispatch(updateActivity({
+            //     id: activityId!, // or the activity id
+            //     data: {
+            //         name : 'govind',
+            //         url : 'http://google.com/'
+            //     }
+            //   }));
+            
+           // dispatch(setLatestResponse(responseData));
             setAIExplanation(await explainResponse(responseData));
 
             // Rename activity if it's a new request
-            if (activityId && (activityName === 'New Request' || !activityName) && reqData.url) {
-                dispatch(renameActivity({ id: activityId, name: reqData.url }));
-            }
-
+            // if (activityId && (activityName === 'New Request' || !activityName) && reqData.url) {
+            //     console.log("inside rename activity inside network util");
+            //     dispatch(renameActivity({ id: activityId, name: reqData.url }));
+            // }
         } catch (e) {
-            dispatch(setLatestResponse(null));
+            //dispatch(setLatestResponse(null));
             setAIExplanation("Failed to send request: " + (e as Error).message);
         }
     }

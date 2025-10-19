@@ -5,7 +5,7 @@ export interface RequestModel {
     url: string;
     headers: Record<string, string>;
     body: string;
-    timestamp: Date;
+    timestamp: string;
     description?: string;
     tags?: string[];
     isActive?: boolean;
@@ -22,7 +22,7 @@ export interface RequestFormData {
 
 export interface CreateRequestData extends Omit<RequestModel, 'id' | 'timestamp'> {
     id?: string;
-    timestamp?: Date;
+    timestamp?: string;
 }
 
 export interface UpdateRequestData extends Partial<Omit<RequestModel, 'id' | 'timestamp'>> {
@@ -68,7 +68,7 @@ export const createRequest = (data: CreateRequestData): RequestModel => {
         url: data.url,
         headers: data.headers || {},
         body: data.body || '',
-        timestamp: data.timestamp || new Date(),
+        timestamp: data.timestamp || new Date().toISOString(),
         description: data.description,
         tags: data.tags || [],
         isActive: data.isActive !== false,

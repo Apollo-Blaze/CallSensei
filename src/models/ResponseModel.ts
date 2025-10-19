@@ -1,18 +1,42 @@
-export interface ResponseModel {
-    id: string;
-    requestId: string;
-    status: number;
-    statusText: string;
-    headers: Record<string, string>;
-    body: string;
-    timestamp: Date;
-    duration: number; // Response time in milliseconds
-    size: number; // Response size in bytes
-    contentType?: string;
-    isSuccess: boolean;
-    error?: string;
-}
+// export class ResponseModel {
+//   status: number;
+//   statusText: string;
+//   headers: Record<string, string>;
+//   body: string;
+//   responseTime: number;
+//   timestamp: number;
 
+//   constructor(
+//     status: number,
+//     statusText: string,
+//     headers: Record<string, string>,
+//     body: string,
+//     responseTime: number,
+//     timestamp: number
+//   ) {
+//     this.status = status;
+//     this.statusText = statusText;
+//     this.headers = headers;
+//     this.body = body;
+//     this.responseTime = responseTime;
+//     this.timestamp = timestamp;
+//   }
+// }
+
+export interface ResponseModel {
+  id: string;
+  requestId: string;
+  status: number;
+  statusText: string;
+  headers: Record<string, string>;
+  body: string;
+  timestamp: string;
+  duration: number; // Response time in milliseconds
+  size: number; // Response size in bytes
+  contentType?: string;
+  isSuccess: boolean;
+  error?: string;
+}
 export interface ResponseData {
     status: number;
     statusText: string;
@@ -22,7 +46,7 @@ export interface ResponseData {
 
 export interface CreateResponseData extends Omit<ResponseModel, 'id' | 'timestamp'> {
     id?: string;
-    timestamp?: Date;
+    timestamp?: string;
 }
 
 export interface UpdateResponseData extends Partial<Omit<ResponseModel, 'id' | 'timestamp'>> {
@@ -85,7 +109,7 @@ export const createResponse = (data: CreateResponseData): ResponseModel => {
         statusText: data.statusText,
         headers: data.headers || {},
         body: data.body || '',
-        timestamp: data.timestamp || new Date(),
+        timestamp: data.timestamp || new Date().toISOString(),
         duration: data.duration,
         size: data.size || 0,
         contentType: data.contentType,

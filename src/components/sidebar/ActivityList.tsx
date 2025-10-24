@@ -4,7 +4,7 @@ import type { RootState } from "../../state/store";
 import ActivityCard from "./activityCard/ActivityCard";
 import type { ActivityModel } from "../../models/ActivityModel";
 import type { FolderModel } from "../../models/FolderModel";
-import { moveNode, deleteFolder, renameFolder } from "../../state/activitiesSlice";
+import { moveNode, deleteFolder, renameFolder, setSelectedActivity } from "../../state/activitiesSlice";
 
 interface ActivityListProps {
     onSelect: (id: string) => void;
@@ -19,6 +19,11 @@ export function ActivityList({ onSelect, selectedId }: ActivityListProps) {
     const [editingFolderId, setEditingFolderId] = useState<string | null>(null);
     const [folderEditValue, setFolderEditValue] = useState<string>("");
 
+    const handleSelect = (id: string) => {
+        onSelect(id);
+        dispatch(setSelectedActivity(id));
+    };
+
     const handleDuplicate = (originalId: string) => {
         const latestActivity = activities[activities.length - 1];
         if (
@@ -26,7 +31,7 @@ export function ActivityList({ onSelect, selectedId }: ActivityListProps) {
             latestActivity.id !== originalId &&
             (latestActivity as any).title?.includes('(copy)')
         ) {
-            onSelect(latestActivity.id);
+            handleSelect(latestActivity.id);
         }
     };
 
@@ -176,7 +181,7 @@ export function ActivityList({ onSelect, selectedId }: ActivityListProps) {
                             <ActivityCard
                                 activity={activity}
                                 selectedId={selectedId}
-                                onSelect={onSelect}
+                                onSelect={handleSelect}
                                 onDuplicate={handleDuplicate}
                             />
                         </div>

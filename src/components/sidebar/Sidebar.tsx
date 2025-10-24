@@ -1,11 +1,11 @@
 
 // callsensei/src/components/Sidebar.tsx
 import React, { useEffect, useRef } from "react";
-import {ActivityList} from "./ActivityList";
+import { ActivityList } from "./ActivityList";
 
 
 import { useDispatch, useSelector } from "react-redux";
-import { addActivity, addFolder } from "../../state/activitiesSlice";
+import { addActivity, addFolder, setSelectedActivity } from "../../state/activitiesSlice";
 import type { RequestModel } from "../../models";
 // import type { RequestMethod } from "../../models";
 // import  type { ActivityModel } from "../../models/ActivityModel";
@@ -20,9 +20,6 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelect, selectedId }) => {
     const activities = useSelector((state: any) => (state.activities.activities));
     const initialized = useRef(false);
     const previousActivitiesLength = useRef(activities.length);
-    const [width, setWidth] = useState(260); // default 260px (~w-64)
-
-    const sidebarRef = useRef<HTMLDivElement>(null);
     const isResizing = useRef(false);
 
     // Ensure at least one activity exists
@@ -57,10 +54,11 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelect, selectedId }) => {
                 const latestActivity = activities[activities.length - 1];
                 console.log('Auto-selecting latest activity:', latestActivity.id, latestActivity.name, 'isNewActivityAdded:', isNewActivityAdded);
                 onSelect(latestActivity.id);
+                dispatch(setSelectedActivity(latestActivity.id));
             }
         }
         previousActivitiesLength.current = activities.length;
-    }, [activities, selectedId, onSelect]);
+    }, [activities, selectedId, onSelect, dispatch]);
 
     // Handle creating new activity
     const handleNewActivity = () => {
@@ -88,12 +86,9 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelect, selectedId }) => {
     };
 
     useEffect(() => {
-        const handleMouseMove = (e: MouseEvent) => {
+        const handleMouseMove = () => {
             if (!isResizing.current) return;
-            const newWidth = e.clientX;
-            if (newWidth > 180 && newWidth < 500) {
-                setWidth(newWidth);
-            }
+            // Resize functionality can be added here if needed
         };
     
         window.addEventListener("mousemove", handleMouseMove);
@@ -151,13 +146,15 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelect, selectedId }) => {
 
             </div>
 
+            <ActivityList onSelect={onSelect} selectedId={selectedId} />
+            
             {/* Resizer Handle */}
             <div
                 onMouseDown={startResize}
                 className="absolute top-0 right-0 h-full w-1.5 cursor-col-resize bg-transparent transition"
                 style={{ zIndex: 50 }}
             />
-        </div>
+        </aside>
     );
 };
 

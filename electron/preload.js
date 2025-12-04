@@ -1,4 +1,5 @@
-const { contextBridge, ipcRenderer } = require('electron')
+"use strict";
+const { contextBridge, ipcRenderer } = require('electron');
 // Expose a minimal, safe API. Extend as needed later.
 contextBridge.exposeInMainWorld('api', {
     appName: 'CallSensei',

@@ -19,6 +19,8 @@ async function createMainWindow() {
             nodeIntegration: false,
         },
     });
+    // Maximize the window after creation
+    mainWindow.maximize();
     const devServerUrl = getViteDevServerUrl();
     if (devServerUrl) {
         await mainWindow.loadURL(devServerUrl);

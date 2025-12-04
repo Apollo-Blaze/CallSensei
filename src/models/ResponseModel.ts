@@ -5,7 +5,7 @@ export interface ResponseModel {
     statusText: string;
     headers: Record<string, string>;
     body: string;
-    timestamp: Date;
+    timestamp: string; // Changed from Date to ISO string for serialization
     duration: number; // Response time in milliseconds
     size: number; // Response size in bytes
     contentType?: string;
@@ -22,7 +22,7 @@ export interface ResponseData {
 
 export interface CreateResponseData extends Omit<ResponseModel, 'id' | 'timestamp'> {
     id?: string;
-    timestamp?: Date;
+    timestamp?: string;
 }
 
 export interface UpdateResponseData extends Partial<Omit<ResponseModel, 'id' | 'timestamp'>> {
@@ -85,7 +85,7 @@ export const createResponse = (data: CreateResponseData): ResponseModel => {
         statusText: data.statusText,
         headers: data.headers || {},
         body: data.body || '',
-        timestamp: data.timestamp || new Date(),
+        timestamp: data.timestamp || new Date().toISOString(), // Use ISO string for serialization
         duration: data.duration,
         size: data.size || 0,
         contentType: data.contentType,

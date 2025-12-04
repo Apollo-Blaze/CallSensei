@@ -24,6 +24,9 @@ async function createMainWindow(): Promise<void> {
         },
     })
 
+    // Maximize the window after creation
+    mainWindow.maximize()
+
     const devServerUrl = getViteDevServerUrl()
     if (devServerUrl) {
         await mainWindow.loadURL(devServerUrl)
@@ -129,7 +132,7 @@ function applyUnifiedDiff(baseDir: string, patchText: string): { ok: boolean; me
     return { ok: true, written: filesWritten }
 }
 
-ipcMain.handle('patch:preview', async (_event, args: { patchText: string }) => {
+ipcMain.handle('patch:preview', async (_event: any, args: { patchText: string }) => {
     const { patchText } = args
     // Basic preview: list of paths affected
     const fileMatches = [...patchText.matchAll(/^\+\+\+\s+b\/(.*)$/gm)].map(m => ({ path: m[1], status: 'modify' as const }))
@@ -139,7 +142,7 @@ ipcMain.handle('patch:preview', async (_event, args: { patchText: string }) => {
     return { ok: true, files }
 })
 
-ipcMain.handle('patch:apply', async (_event, args: { patchText: string }) => {
+ipcMain.handle('patch:apply', async (_event: any, args: { patchText: string }) => {
     const { patchText } = args
     const baseDir = process.cwd()
     try {
@@ -157,13 +160,13 @@ ipcMain.handle('fs:selectDirectory', async () => {
     return { ok: true, path: result.filePaths[0] }
 })
 
-ipcMain.handle('fs:selectFile', async (_event, args: { defaultPath?: string }) => {
+ipcMain.handle('fs:selectFile', async (_event: any, args: { defaultPath?: string }) => {
     const result = await dialog.showOpenDialog({ properties: ['openFile'], defaultPath: args?.defaultPath })
     if (result.canceled || result.filePaths.length === 0) return { ok: false }
     return { ok: true, path: result.filePaths[0] }
 })
 
-ipcMain.handle('fs:writeFile', async (_event, args: { path: string; content: string }) => {
+ipcMain.handle('fs:writeFile', async (_event: any, args: { path: string; content: string }) => {
     try {
         fs.mkdirSync(path.dirname(args.path), { recursive: true })
         fs.writeFileSync(args.path, args.content, 'utf8')

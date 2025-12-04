@@ -1,10 +1,14 @@
-import type { Dispatch } from 'redux';
-import type { RequestMethod } from '../models';
-import { calculateResponseSize, extractContentType, isSuccessfulResponse} from '../models';
-import type {ResponseModel} from '../models';
-import { updateActivity , renameActivity } from '../state/activitiesSlice';
-import {createResponse} from '../models';
-import { createActivity } from '../models/ActivityModel';
+import type { Dispatch } from "redux";
+import type { RequestMethod } from "../models";
+import {
+    calculateResponseSize,
+    extractContentType,
+    isSuccessfulResponse,
+    createResponse,
+} from "../models";
+import { updateActivity, renameActivity } from "../state/activitiesSlice";
+import { generateAiExplanation } from "../services/aiService";
+
 interface RequestData {
     method: RequestMethod;
     url: string;
@@ -38,13 +42,12 @@ export const networkUtils: NetworkUtils = {
             const res = await fetch(reqData.url, {
                 method: reqData.method,
                 headers: reqData.headers,
-                body: ["POST", "PUT", "PATCH"].includes(reqData.method) ? reqData.body : undefined,
+                body: ["POST", "PUT", "PATCH"].includes(reqData.method)
+                    ? reqData.body
+                    : undefined,
             });
 
-            console.log("after fetch inside network util");
-
             const resBody = await res.text();
-            console.log("response body",resBody);
             const responseHeaders = Object.fromEntries(res.headers.entries());
             const contentType = extractContentType(responseHeaders);
             const responseSize = calculateResponseSize(resBody);
@@ -52,7 +55,7 @@ export const networkUtils: NetworkUtils = {
 
             // Create response model
             const responseData = createResponse({
-                requestId: activityId || '',
+                requestId: activityId || "",
                 status: res.status,
                 statusText: res.statusText,
                 headers: responseHeaders,
@@ -63,38 +66,67 @@ export const networkUtils: NetworkUtils = {
                 isSuccess: isSuccessfulResponse(res.status),
             });
 
-            const activityData = {
-                response :responseData
-            };
-            console.log("activityData being dispatched", activityData);
-            
+            // Attach response to the existing activity
+            if (activityId) {
+                dispatch(
+                    updateActivity({
+                        id: activityId,
+                        data: { response: responseData },
+                    })
+                );
+            }
 
+            // Generate combined AI explanation (request + response)
+            const explanation = await generateAiExplanation({
+                request: {
+                    method: reqData.method,
+                    url: reqData.url,
+                    headers: reqData.headers,
+                    body: reqData.body,
+                },
+                response: {
+                    status: responseData.status,
+                    statusText: responseData.statusText,
+                    headers: responseData.headers,
+                    body: responseData.body,
+                },
+                mode: "auto",
+                activityId,
+                activityName,
+            });
 
-            console.log("just before dispatching");
-            dispatch(updateActivity({
-                id: activityId!, // or the activity id
-                data: activityData
-              }));
-
-            // dispatch(updateActivity({
-            //     id: activityId!, // or the activity id
-            //     data: {
-            //         name : 'govind',
-            //         url : 'http://google.com/'
-            //     }
-            //   }));
-            
-           // dispatch(setLatestResponse(responseData));
-            setAIExplanation(await explainResponse(responseData));
+            setAIExplanation(explanation);
 
             // Rename activity if it's a new request
-            // if (activityId && (activityName === 'New Request' || !activityName) && reqData.url) {
-            //     console.log("inside rename activity inside network util");
-            //     dispatch(renameActivity({ id: activityId, name: reqData.url }));
-            // }
+            if (
+                activityId &&
+                (activityName === "New Request" || !activityName) &&
+                reqData.url
+            ) {
+                dispatch(renameActivity({ id: activityId, name: reqData.url }));
+            }
         } catch (e) {
-            //dispatch(setLatestResponse(null));
-            setAIExplanation("Failed to send request: " + (e as Error).message);
+            const message = (e as Error).message;
+            setAIExplanation("Failed to send request: " + message);
+
+            // Optional: AI explanation of the failure
+            try {
+                const explanation = await generateAiExplanation({
+                    request: {
+                        method: reqData.method,
+                        url: reqData.url,
+                        headers: reqData.headers,
+                        body: reqData.body,
+                    },
+                    errorMessage: message,
+                    mode: "auto",
+                    activityId,
+                    activityName,
+                });
+                setAIExplanation(explanation);
+            } catch {
+                // fall back to plain error message only
+            }
         }
-    }
-}; 
+    },
+};

@@ -49,6 +49,8 @@ interface AiExplanationArgs {
     userQuestion?: string;
     mode?: AiExplanationMode;
     history?: AiChatTurn[];
+    activityName?: string;
+    activityId?: string;
 }
 
 const truncateBody = (body: string, limit = 2000) =>
@@ -61,6 +63,8 @@ export async function generateAiExplanation({
     userQuestion,
     mode = "auto",
     history,
+    activityName,
+    activityId,
 }: AiExplanationArgs): Promise<string> {
     try {
         const geminiModel = getModel();
@@ -96,6 +100,13 @@ summarize what is happening, highlight important details, and suggest next steps
 Keep the tone concise (3-4 sentences) and actionable.`;
         })();
 
+        const activitySection =
+            (activityName || activityId)
+                ? `Activity:
+- Name: ${activityName || "Unknown"}
+- Id: ${activityId || "Unknown"}`
+                : "";
+
         const requestSection = `Request:
 - Method: ${request.method}
 - URL: ${request.url}
@@ -111,7 +122,7 @@ Keep the tone concise (3-4 sentences) and actionable.`;
 
         const errorSection = errorMessage ? `Error: ${errorMessage}` : "";
 
-        const baseContext = `${requestSection}
+        const baseContext = `${activitySection ? activitySection + "\n\n" : ""}${requestSection}
 
 ${responseSection}
 

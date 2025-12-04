@@ -4,6 +4,7 @@ import { FiX } from "react-icons/fi";
 import { FaRobot } from "react-icons/fa";
 import type { RootState } from "../../../state/store";
 import type { RequestModel, ResponseModel } from "../../../models";
+import type { ActivityModel } from "../../../models/ActivityModel";
 import { generateAiExplanation } from "../../../services/aiService";
 
 interface AIPanelProps {
@@ -31,16 +32,16 @@ const AIPanel: React.FC<AIPanelProps> = ({
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isBusy, setIsBusy] = useState(false);
 
-  const activities = useSelector((state: RootState) => state.activities.activities);
-  const latestResponse = useSelector(
-    (state: RootState) => state.activities.latestResponse
+  const activities = useSelector(
+    (state: RootState) => state.activities.activities as ActivityModel[]
   );
 
-  const currentRequest: RequestModel | undefined = activities.find(
-    (r) => r.id === selectedId
-  );
-
-  const currentResponse: ResponseModel | null = latestResponse;
+  const currentActivity = activities.find((a) => a.id === selectedId);
+  const currentRequest: RequestModel | undefined = currentActivity?.request;
+  const currentResponse: ResponseModel | null =
+    (currentActivity?.response as ResponseModel | undefined) ?? null;
+  const activityName: string | undefined = currentActivity?.name;
+  const activityId: string | undefined = currentActivity?.id;
 
   const buildRequestSummary = () =>
     currentRequest && {
@@ -78,6 +79,8 @@ const AIPanel: React.FC<AIPanelProps> = ({
         response: buildResponseSummary() || undefined,
         mode: "request",
         history: messages,
+        activityName,
+        activityId,
       });
       onSetExplanation(result);
       pushMessage("ai", result);
@@ -101,6 +104,8 @@ const AIPanel: React.FC<AIPanelProps> = ({
         response: res,
         mode: "response",
         history: messages,
+        activityName,
+        activityId,
       });
       onSetExplanation(result);
       pushMessage("ai", result);
@@ -130,6 +135,8 @@ const AIPanel: React.FC<AIPanelProps> = ({
         userQuestion: text,
         mode: "chat",
         history: messages,
+        activityName,
+        activityId,
       });
       onSetExplanation(result);
       pushMessage("ai", result);

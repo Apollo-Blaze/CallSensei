@@ -1,9 +1,10 @@
 import type { Dispatch } from 'redux';
 import type { RequestMethod } from '../models';
-import { createResponse, calculateResponseSize, extractContentType, isSuccessfulResponse } from '../models';
-import { renameActivity, setLatestResponse } from '../state/activitiesSlice';
-import { generateAiExplanation } from '../services/aiService';
-
+import { calculateResponseSize, extractContentType, isSuccessfulResponse} from '../models';
+import type {ResponseModel} from '../models';
+import { updateActivity , renameActivity } from '../state/activitiesSlice';
+import {createResponse} from '../models';
+import { createActivity } from '../models/ActivityModel';
 interface RequestData {
     method: RequestMethod;
     url: string;
@@ -40,7 +41,10 @@ export const networkUtils: NetworkUtils = {
                 body: ["POST", "PUT", "PATCH"].includes(reqData.method) ? reqData.body : undefined,
             });
 
+            console.log("after fetch inside network util");
+
             const resBody = await res.text();
+            console.log("response body",resBody);
             const responseHeaders = Object.fromEntries(res.headers.entries());
             const contentType = extractContentType(responseHeaders);
             const responseSize = calculateResponseSize(resBody);
@@ -59,35 +63,38 @@ export const networkUtils: NetworkUtils = {
                 isSuccess: isSuccessfulResponse(res.status),
             });
 
-            // Update Redux state
-            dispatch(setLatestResponse(responseData));
+            const activityData = {
+                response :responseData
+            };
+            console.log("activityData being dispatched", activityData);
+            
 
-            // Combined AI explanation (request + response)
-            setAIExplanation(await generateAiExplanation({
-                request: reqData,
-                response: {
-                    status: responseData.status,
-                    statusText: responseData.statusText,
-                    headers: responseData.headers,
-                    body: responseData.body
-                }
-            }));
+
+            console.log("just before dispatching");
+            dispatch(updateActivity({
+                id: activityId!, // or the activity id
+                data: activityData
+              }));
+
+            // dispatch(updateActivity({
+            //     id: activityId!, // or the activity id
+            //     data: {
+            //         name : 'govind',
+            //         url : 'http://google.com/'
+            //     }
+            //   }));
+            
+           // dispatch(setLatestResponse(responseData));
+            setAIExplanation(await explainResponse(responseData));
 
             // Rename activity if it's a new request
-            if (activityId && (activityName === 'New Request' || !activityName) && reqData.url) {
-                dispatch(renameActivity({ id: activityId, name: reqData.url }));
-            }
-
+            // if (activityId && (activityName === 'New Request' || !activityName) && reqData.url) {
+            //     console.log("inside rename activity inside network util");
+            //     dispatch(renameActivity({ id: activityId, name: reqData.url }));
+            // }
         } catch (e) {
-            dispatch(setLatestResponse(null));
-            const errorMessage = (e as Error).message;
-            setAIExplanation("Failed to send request: " + errorMessage);
-
-            // Provide AI context even when the request fails
-            setAIExplanation(await generateAiExplanation({
-                request: reqData,
-                errorMessage
-            }));
+            //dispatch(setLatestResponse(null));
+            setAIExplanation("Failed to send request: " + (e as Error).message);
         }
     }
 }; 

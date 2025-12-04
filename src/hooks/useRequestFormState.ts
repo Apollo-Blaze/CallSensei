@@ -3,22 +3,25 @@ import { useSelector } from 'react-redux';
 import type { RootState } from '../state/store';
 import type { RequestMethod } from '../models';
 
-export const useRequestFormState = (selectedId: string | null) => {
+export const useRequestFormState = () => {
+    const selectedActivityId = useSelector((state: RootState) => state.activities.selectedActivityId);
     const activity = useSelector((state: RootState) =>
-        state.activities.activities.find(a => a.id === selectedId)
+        state.activities.activities.find(a => a.id === selectedActivityId)
     );
 
-    const [method, setMethod] = useState<RequestMethod>(activity?.method || "GET");
+    // console.log('selectedActivityId', selectedActivityId);
+
+    const [method, setMethod] = useState<RequestMethod>(activity?.request.method || "GET");
     const [url, setUrl] = useState(activity?.url || "");
-    const [headers, setHeaders] = useState(activity ? JSON.stringify(activity.headers, null, 2) : "{}");
-    const [body, setBody] = useState(activity?.body || "");
+    const [headers, setHeaders] = useState(activity ? JSON.stringify(activity.request.headers, null, 2) : "{}");
+    const [body, setBody] = useState(activity?.request.body || "");
 
     // Sync form state with selected activity
     useEffect(() => {
-        setMethod(activity?.method || "GET");
+        setMethod(activity?.request.method || "GET");
         setUrl(activity?.url || "");
-        setHeaders(activity ? JSON.stringify(activity.headers, null, 2) : "{}");
-        setBody(activity?.body || "");
+        setHeaders(activity ? JSON.stringify(activity.request.headers, null, 2) : "{}");
+        setBody(activity?.request.body || "");
     }, [activity]);
 
     const resetForm = () => {

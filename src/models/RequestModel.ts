@@ -5,7 +5,7 @@ export interface RequestModel {
     url: string;
     headers: Record<string, string>;
     body: string;
-    timestamp: string; // Changed from Date to ISO string for serialization
+    timestamp: string;
     description?: string;
     tags?: string[];
     isActive?: boolean;
@@ -68,7 +68,7 @@ export const createRequest = (data: CreateRequestData): RequestModel => {
         url: data.url,
         headers: data.headers || {},
         body: data.body || '',
-        timestamp: data.timestamp || new Date().toISOString(), // Use ISO string for serialization
+        timestamp: data.timestamp || new Date().toISOString(),
         description: data.description,
         tags: data.tags || [],
         isActive: data.isActive !== false,

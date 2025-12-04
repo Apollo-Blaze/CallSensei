@@ -1,7 +1,8 @@
 import type { Dispatch } from 'redux';
 import type { RequestMethod } from '../models';
 import { createResponse, calculateResponseSize, extractContentType, isSuccessfulResponse } from '../models';
-import { updateActivity, renameActivity, setLatestResponse } from '../state/activitiesSlice';
+import { renameActivity, setLatestResponse } from '../state/activitiesSlice';
+import { generateAiExplanation } from '../services/aiService';
 
 interface RequestData {
     method: RequestMethod;
@@ -19,7 +20,7 @@ interface NetworkUtils {
         setAIExplanation: (explanation: string) => void
     ) => Promise<void>;
 }
- 
+
 export const networkUtils: NetworkUtils = {
     sendHttpRequest: async (
         reqData: RequestData,
@@ -31,13 +32,7 @@ export const networkUtils: NetworkUtils = {
         const startTime = Date.now();
 
         try {
-            setAIExplanation("Loading explanation...");
-
-            // TODO: Import real AI explanation functions
-            const explainEndpoint = async (data: any) => "";
-            const explainResponse = async (data: any) => "";
-
-            setAIExplanation(await explainEndpoint(reqData));
+            setAIExplanation("Analyzing request...");
 
             const res = await fetch(reqData.url, {
                 method: reqData.method,
@@ -66,7 +61,17 @@ export const networkUtils: NetworkUtils = {
 
             // Update Redux state
             dispatch(setLatestResponse(responseData));
-            setAIExplanation(await explainResponse(responseData));
+
+            // Combined AI explanation (request + response)
+            setAIExplanation(await generateAiExplanation({
+                request: reqData,
+                response: {
+                    status: responseData.status,
+                    statusText: responseData.statusText,
+                    headers: responseData.headers,
+                    body: responseData.body
+                }
+            }));
 
             // Rename activity if it's a new request
             if (activityId && (activityName === 'New Request' || !activityName) && reqData.url) {
@@ -75,7 +80,14 @@ export const networkUtils: NetworkUtils = {
 
         } catch (e) {
             dispatch(setLatestResponse(null));
-            setAIExplanation("Failed to send request: " + (e as Error).message);
+            const errorMessage = (e as Error).message;
+            setAIExplanation("Failed to send request: " + errorMessage);
+
+            // Provide AI context even when the request fails
+            setAIExplanation(await generateAiExplanation({
+                request: reqData,
+                errorMessage
+            }));
         }
     }
 }; 

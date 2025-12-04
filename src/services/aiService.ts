@@ -1,9 +1,154 @@
-export async function explainEndpoint({ method, url, headers, body }: { method: string; url: string; headers: Record<string, string>; body: string; }): Promise<string> {
-    // TODO: Replace with actual OpenAI API call
-    return `This is a ${method} request to ${url}. Headers: ${JSON.stringify(headers)}. Body: ${body || 'none'}.`;
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
+import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
+
+// Initialize the Gemini model
+let model: ChatGoogleGenerativeAI | null = null;
+
+function getModel(): ChatGoogleGenerativeAI {
+    if (!model) {
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+        if (!apiKey) {
+            throw new Error("Gemini API key not found. Please set VITE_GEMINI_API_KEY in your .env file.");
+        }
+        model = new ChatGoogleGenerativeAI({
+            // Use a supported Gemini model ID for the public API
+            // If this ever fails again, check the latest model IDs in Google AI Studio.
+            model: "gemini-2.5-flash",
+            temperature: 0.7,
+            apiKey: apiKey,
+        });
+    }
+    return model;
 }
 
-export async function explainResponse(response: { status: number; statusText: string; headers: Record<string, string>; body: string; }): Promise<string> {
-    // TODO: Replace with actual OpenAI API call
-    return `The response has status ${response.status} (${response.statusText}). Headers: ${JSON.stringify(response.headers)}. Body: ${response.body || 'none'}.`;
-} 
+export interface AiRequestSummary {
+    method: string;
+    url: string;
+    headers: Record<string, string>;
+    body: string;
+}
+
+export interface AiResponseSummary {
+    status: number;
+    statusText: string;
+    headers: Record<string, string>;
+    body: string;
+}
+
+type AiExplanationMode = "auto" | "request" | "response" | "chat";
+
+export interface AiChatTurn {
+    from: "user" | "ai";
+    text: string;
+}
+
+interface AiExplanationArgs {
+    request: AiRequestSummary;
+    response?: AiResponseSummary;
+    errorMessage?: string;
+    userQuestion?: string;
+    mode?: AiExplanationMode;
+    history?: AiChatTurn[];
+}
+
+const truncateBody = (body: string, limit = 2000) =>
+    body.length > limit ? `${body.substring(0, limit)}... (truncated)` : body || "Empty";
+
+export async function generateAiExplanation({
+    request,
+    response,
+    errorMessage,
+    userQuestion,
+    mode = "auto",
+    history,
+}: AiExplanationArgs): Promise<string> {
+    try {
+        const geminiModel = getModel();
+
+        const systemPrompt = (() => {
+            if (mode === "request") {
+                return `You are an expert API assistant. Provide an in-depth but concise explanation of this HTTP request:
+- What the endpoint is likely for
+- Role of each important header and parameter
+- Semantics of the body (if present)
+- Any potential issues or improvements
+
+Limit yourself to 5-7 short bullet points.`;
+            }
+            if (mode === "response") {
+                return `You are an expert API assistant. Provide an in-depth analysis of this HTTP response:
+- What the status code means in this context
+- Whether the request was successful and why
+- Key structure and meaning of the response body
+- Any detected errors or edge cases
+- Recommendations for next steps or fixes
+
+Limit yourself to 5-7 short bullet points.`;
+            }
+            if (mode === "chat") {
+                return `You are an expert API assistant having an interactive conversation with a developer.
+Use the request/response as context, but Only answer the user's latest question based on the context provided.
+Be concise, practical, and avoid repeating previously obvious details unless they are directly relevant.`;
+            }
+            // default "auto"
+            return `You are an expert API assistant. Given the HTTP request (and optionally the response/error),
+summarize what is happening, highlight important details, and suggest next steps if needed.
+Keep the tone concise (3-4 sentences) and actionable.`;
+        })();
+
+        const requestSection = `Request:
+- Method: ${request.method}
+- URL: ${request.url}
+- Headers: ${JSON.stringify(request.headers, null, 2)}
+- Body: ${request.body || "None"}`;
+
+        const responseSection = response
+            ? `Response:
+- Status: ${response.status} ${response.statusText}
+- Headers: ${JSON.stringify(response.headers, null, 2)}
+- Body: ${truncateBody(response.body)}`
+            : "Response: Not available yet.";
+
+        const errorSection = errorMessage ? `Error: ${errorMessage}` : "";
+
+        const baseContext = `${requestSection}
+
+${responseSection}
+
+${errorSection}`.trim();
+
+        const userPrompt =
+            mode === "chat" && userQuestion
+                ? `${baseContext}
+
+User question:
+${userQuestion}
+
+Answer only the user's question based on the context above. Do not restate the whole request/response unless it is necessary to directly answer the question.`
+                : `${baseContext}
+
+Explain the intent of the request, what the response indicates, and recommend any follow-up actions or answers as appropriate.`;
+
+        const historyMessages =
+            history && history.length
+                ? history.slice(-6).map((m) =>
+                    m.from === "user"
+                        ? new HumanMessage(m.text)
+                        : new AIMessage(m.text)
+                )
+                : [];
+
+        const messages = [
+            new SystemMessage(systemPrompt),
+            ...historyMessages,
+            new HumanMessage(userPrompt),
+        ];
+
+        const explanation = await geminiModel.invoke(messages);
+        console.log("[AI] Combined explanation:", explanation.content);
+        return explanation.content as string;
+    } catch (error) {
+        console.error("Error generating AI explanation:", error);
+        return error instanceof Error ? error.message : "Unable to generate AI explanation.";
+    }
+}

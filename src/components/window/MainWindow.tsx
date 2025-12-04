@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import Navbar from "../Navbar";
 import PatchReview from "./ai/PatchReview";
-import AIExplanation from "./ai/AIExplanation";
 import AIPanel from "./ai/AIPanel";
 import RequestForm from "../request/RequestForm";
 import ResponseViewer from "../response/ResponseViewer";
@@ -36,7 +35,6 @@ const MainWindow: React.FC<MainWindowProps> = ({
                     <div className="flex-1 min-h-0 overflow-auto  min-w-0">
                         <RequestForm selectedId={selectedId} setAIExplanation={setAIExplanation} />
                         <ResponseViewer />
-                        <AIExplanation explanation={aiExplanation} />
                         {isPatchOpen && (
                             <div className="mt-6">
                                 <PatchReview />
@@ -44,7 +42,13 @@ const MainWindow: React.FC<MainWindowProps> = ({
                         )}
                     </div>
                 </main>
-                <AIPanel isOpen={isAIPanelOpen} onClose={handleCloseAIPanel} />
+                <AIPanel
+                    isOpen={isAIPanelOpen}
+                    onClose={handleCloseAIPanel}
+                    explanation={aiExplanation}
+                    onSetExplanation={setAIExplanation}
+                    selectedId={selectedId}
+                />
             </div>
         </div>
     );

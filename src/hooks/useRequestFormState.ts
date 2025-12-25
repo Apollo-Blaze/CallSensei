@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useSelector } from 'react-redux';
-import type { RootState } from '../state/store';
-import type { RequestMethod } from '../models';
 
+import { useSelector ,  useDispatch, type TypedUseSelectorHook} from 'react-redux';
+import type { RequestMethod } from '../models';
+import type { RootState , AppDispatch } from '../state/store';
+
+export const useAppDispatch = () => useDispatch<AppDispatch>();
+export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
 export const useRequestFormState = () => {
     const selectedActivityId = useSelector((state: RootState) => state.activities.selectedActivityId);
     const activity = useSelector((state: RootState) =>

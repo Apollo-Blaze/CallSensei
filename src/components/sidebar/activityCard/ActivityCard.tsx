@@ -1,5 +1,6 @@
 import React from "react";
 import { useDispatch } from "react-redux";
+import { handlePush as handlePushGithub} from "../../../utils/githubActivities";
 import { duplicateActivity, deleteActivity, renameActivity, setSelectedActivity } from "../../../state/activitiesSlice";
 import type { ActivityModel } from "../../../models/ActivityModel";
 import ActivityMenu from "./ActivityMenu";
@@ -50,6 +51,12 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
         dispatch(deleteActivity(activity.id));
     };
 
+    const handlePush = (selectedId:number) => {
+            console.log("preseed push button"); 
+            handlePushGithub();
+        
+    }
+
     const isSelected = selectedActivityId === activity.id;
     const displayName = activity.name || activity.url || activity.id;
 
@@ -70,6 +77,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
                     onDuplicate={handleDuplicate}
                     onDelete={handleDelete}
                 />
+                <button style={{ backgroundColor: 'red', color: 'white' }} onClick={()=>handlePush(selectedId ? 0 : 0)}>Push</button> 
             </div>
         </li>
     );

@@ -2,7 +2,7 @@
 // callsensei/src/components/Sidebar.tsx
 import React, { useEffect, useRef } from "react";
 import { ActivityList } from "./ActivityList";
-
+import GitHubAuthButton from "../window/github/GitHubButton";
 
 import { useDispatch, useSelector } from "react-redux";
 import { addActivity, addFolder, setSelectedActivity } from "../../state/activitiesSlice";
@@ -142,6 +142,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onSelect, selectedId }) => {
                     >
                         📁
                     </button>
+                    <GitHubAuthButton></GitHubAuthButton>
                 </div>
 
             </div>

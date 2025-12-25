@@ -3,4 +3,7 @@ import { contextBridge } from 'electron';
 contextBridge.exposeInMainWorld('api', {
     appName: 'CallSensei',
 });
+contextBridge.exposeInMainWorld("electron", {
+    githubLogin: (code) => ipcRenderer.invoke("github-login", code),
+  });
 //# sourceMappingURL=preload.js.map

@@ -28,7 +28,7 @@ const RequestForm: React.FC<{
 
     // Keep track of last valid parsed headers to avoid losing data while typing invalid JSON
     const lastValidHeadersRef = React.useRef<Record<string, string>>({});
-
+    const prevRequestRef = React.useRef<string>("");
     // Initialize last valid headers when activity changes
     React.useEffect(() => {
         if (activity?.request?.headers) {
@@ -59,6 +59,10 @@ const RequestForm: React.FC<{
                 headers: parsedHeaders,
                 body
             };
+            const serialized = JSON.stringify(nextRequest);
+            if (serialized === prevRequestRef.current) return;
+
+            prevRequestRef.current = serialized;
 
             dispatch(updateActivity({
                 id: activity.id,

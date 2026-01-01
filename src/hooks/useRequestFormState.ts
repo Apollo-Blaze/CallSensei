@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 
-import { useSelector ,  useDispatch, type TypedUseSelectorHook} from 'react-redux';
+import { useSelector, useDispatch, type TypedUseSelectorHook } from 'react-redux';
 import type { RequestMethod } from '../models';
-import type { RootState , AppDispatch } from '../state/store';
+import type { RootState, AppDispatch } from '../state/store';
 
 export const useAppDispatch = () => useDispatch<AppDispatch>();
 export const useAppSelector: TypedUseSelectorHook<RootState> = useSelector;
@@ -19,13 +19,13 @@ export const useRequestFormState = () => {
     const [headers, setHeaders] = useState(activity ? JSON.stringify(activity.request.headers, null, 2) : "{}");
     const [body, setBody] = useState(activity?.request.body || "");
 
-    // Sync form state with selected activity
+    // Sync form state with selected activity (only when activity ID changes, not when activity updates)
     useEffect(() => {
         setMethod(activity?.request.method || "GET");
         setUrl(activity?.url || "");
         setHeaders(activity ? JSON.stringify(activity.request.headers, null, 2) : "{}");
         setBody(activity?.request.body || "");
-    }, [activity]);
+    }, [selectedActivityId]); // Use selectedActivityId instead of activity to prevent overwriting during autosave
 
     const resetForm = () => {
         setMethod("GET");

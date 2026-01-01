@@ -13,7 +13,7 @@ function getModel(): ChatGoogleGenerativeAI {
         model = new ChatGoogleGenerativeAI({
             // Use a supported Gemini model ID for the public API
             // If this ever fails again, check the latest model IDs in Google AI Studio.
-            model: "gemini-2.5-flash",
+            model: "gemini-2.5-flash-lite",
             temperature: 0.7,
             apiKey: apiKey,
         });

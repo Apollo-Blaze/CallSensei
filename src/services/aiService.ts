@@ -1,24 +1,46 @@
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
+import { SETTINGS_KEYS, getSetting } from "../utils/settings";
 
 // Initialize the Gemini model
 let model: ChatGoogleGenerativeAI | null = null;
+let modelApiKey: string | null = null;
+let modelId: string | null = null;
+
+function resolveGeminiApiKey(): string | null {
+    // Prefer user-provided key (settings) over build-time env.
+    const fromSettings = getSetting(SETTINGS_KEYS.GEMINI_API_KEY);
+    if (fromSettings && fromSettings.trim()) return fromSettings.trim();
+    const fromEnv = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+    return fromEnv && fromEnv.trim() ? fromEnv.trim() : null;
+}
+
+function resolveGeminiModelId(): string {
+    const stored = getSetting(SETTINGS_KEYS.AI_MODEL);
+    return stored && stored.trim() ? stored.trim() : "gemini-2.5-flash-lite";
+}
 
 function getModel(): ChatGoogleGenerativeAI {
-    if (!model) {
-        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-        if (!apiKey) {
-            throw new Error("Gemini API key not found. Please set VITE_GEMINI_API_KEY in your .env file.");
-        }
+    const apiKey = resolveGeminiApiKey();
+    if (!apiKey) {
+        throw new Error("Gemini API key not found. Add it in Settings or set VITE_GEMINI_API_KEY in your .env file.");
+    }
+
+    const currentModelId = resolveGeminiModelId();
+
+    // Recreate the model if the key or model changed.
+    if (!model || modelApiKey !== apiKey || modelId !== currentModelId) {
+        modelApiKey = apiKey;
+        modelId = currentModelId;
         model = new ChatGoogleGenerativeAI({
             // Use a supported Gemini model ID for the public API
             // If this ever fails again, check the latest model IDs in Google AI Studio.
-            model: "gemini-2.5-flash-lite",
+            model: currentModelId,
             temperature: 0.7,
-            apiKey: apiKey,
+            apiKey,
         });
     }
-    return model;
+    return model!;
 }
 
 export interface AiRequestSummary {

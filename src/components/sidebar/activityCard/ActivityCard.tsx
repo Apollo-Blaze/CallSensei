@@ -51,11 +51,10 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
         dispatch(deleteActivity(activity.id));
     };
 
-    const handlePush = (selectedId:number) => {
-            console.log("preseed push button"); 
-            handlePushGithub();
-        
-    }
+    const handlePush = () => {
+        console.log("Pressed push button");
+        handlePushGithub();
+    };
 
     const isSelected = selectedActivityId === activity.id;
     const displayName = activity.name || activity.url || activity.id;
@@ -77,7 +76,17 @@ const ActivityCard: React.FC<ActivityCardProps> = ({
                     onDuplicate={handleDuplicate}
                     onDelete={handleDelete}
                 />
-                <button style={{ backgroundColor: 'red', color: 'white' }} onClick={()=>handlePush(selectedId ? 0 : 0)}>Push</button> 
+                <button
+                    type="button"
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        handlePush();
+                    }}
+                    className="mt-2 inline-flex items-center justify-center rounded-md border border-gray-500/60 bg-transparent px-2.5 py-1 text-xs font-medium text-gray-100 hover:bg-gray-700/60 hover:border-gray-300 transition-colors"
+                    title="Push this activity to GitHub"
+                >
+                    Push
+                </button>
             </div>
         </li>
     );

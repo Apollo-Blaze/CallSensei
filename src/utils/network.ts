@@ -1,8 +1,13 @@
-import type { Dispatch } from 'redux';
-import type { RequestMethod } from '../models';
-import { createResponse, calculateResponseSize, extractContentType, isSuccessfulResponse } from '../models';
-import { renameActivity, setLatestResponse } from '../state/activitiesSlice';
-import { generateAiExplanation } from '../services/aiService';
+import type { Dispatch } from "redux";
+import type { RequestMethod } from "../models";
+import {
+    calculateResponseSize,
+    extractContentType,
+    isSuccessfulResponse,
+    createResponse,
+} from "../models";
+import { updateActivity, renameActivity } from "../state/activitiesSlice";
+import { generateAiExplanation } from "../services/aiService";
 
 interface RequestData {
     method: RequestMethod;
@@ -37,7 +42,9 @@ export const networkUtils: NetworkUtils = {
             const res = await fetch(reqData.url, {
                 method: reqData.method,
                 headers: reqData.headers,
-                body: ["POST", "PUT", "PATCH"].includes(reqData.method) ? reqData.body : undefined,
+                body: ["POST", "PUT", "PATCH"].includes(reqData.method)
+                    ? reqData.body
+                    : undefined,
             });
 
             const resBody = await res.text();
@@ -48,7 +55,7 @@ export const networkUtils: NetworkUtils = {
 
             // Create response model
             const responseData = createResponse({
-                requestId: activityId || '',
+                requestId: activityId || "",
                 status: res.status,
                 statusText: res.statusText,
                 headers: responseHeaders,
@@ -59,35 +66,67 @@ export const networkUtils: NetworkUtils = {
                 isSuccess: isSuccessfulResponse(res.status),
             });
 
-            // Update Redux state
-            dispatch(setLatestResponse(responseData));
+            // Attach response to the existing activity
+            if (activityId) {
+                dispatch(
+                    updateActivity({
+                        id: activityId,
+                        data: { response: responseData },
+                    })
+                );
+            }
 
-            // Combined AI explanation (request + response)
-            setAIExplanation(await generateAiExplanation({
-                request: reqData,
+            // Generate combined AI explanation (request + response)
+            const explanation = await generateAiExplanation({
+                request: {
+                    method: reqData.method,
+                    url: reqData.url,
+                    headers: reqData.headers,
+                    body: reqData.body,
+                },
                 response: {
                     status: responseData.status,
                     statusText: responseData.statusText,
                     headers: responseData.headers,
-                    body: responseData.body
-                }
-            }));
+                    body: responseData.body,
+                },
+                mode: "auto",
+                activityId,
+                activityName,
+            });
+
+            setAIExplanation(explanation);
 
             // Rename activity if it's a new request
-            if (activityId && (activityName === 'New Request' || !activityName) && reqData.url) {
+            if (
+                activityId &&
+                (activityName === "New Request" || !activityName) &&
+                reqData.url
+            ) {
                 dispatch(renameActivity({ id: activityId, name: reqData.url }));
             }
-
         } catch (e) {
-            dispatch(setLatestResponse(null));
-            const errorMessage = (e as Error).message;
-            setAIExplanation("Failed to send request: " + errorMessage);
+            const message = (e as Error).message;
+            setAIExplanation("Failed to send request: " + message);
 
-            // Provide AI context even when the request fails
-            setAIExplanation(await generateAiExplanation({
-                request: reqData,
-                errorMessage
-            }));
+            // Optional: AI explanation of the failure
+            try {
+                const explanation = await generateAiExplanation({
+                    request: {
+                        method: reqData.method,
+                        url: reqData.url,
+                        headers: reqData.headers,
+                        body: reqData.body,
+                    },
+                    errorMessage: message,
+                    mode: "auto",
+                    activityId,
+                    activityName,
+                });
+                setAIExplanation(explanation);
+            } catch {
+                // fall back to plain error message only
+            }
         }
-    }
+    },
 }; 

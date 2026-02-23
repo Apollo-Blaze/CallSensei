@@ -1,0 +1,2 @@
+Edge case:
+when we use the wrong variable type in the body, the code injector automatically analyzes the error of the req and res to rectify the code of the server.

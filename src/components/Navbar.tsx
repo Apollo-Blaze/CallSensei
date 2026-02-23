@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { FiSettings, FiMenu, FiGitPullRequest } from "react-icons/fi";
 import { FaRobot } from "react-icons/fa";
+import SettingsModal from "./settings/SettingsModal";
 
 interface NavbarProps {
   onAIClick: () => void;
@@ -10,6 +11,7 @@ interface NavbarProps {
 
 const Navbar: React.FC<NavbarProps> = ({ onAIClick, isAIPanelOpen, onPatchClick }) => {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   return (
     <header className="tour-navbar w-full bg-[#18182a] px-4 py-3 flex items-center justify-between shadow relative">
@@ -27,7 +29,11 @@ const Navbar: React.FC<NavbarProps> = ({ onAIClick, isAIPanelOpen, onPatchClick 
           title="Patch Review"
           onClick={onPatchClick}
         />
-        <FiSettings className="text-white text-xl cursor-pointer hover:text-blue-400 transition-colors" title="Settings" />
+        <FiSettings
+          className="text-white text-xl cursor-pointer hover:text-blue-400 transition-colors"
+          title="Settings"
+          onClick={() => setSettingsOpen(true)}
+        />
       </div>
       {/* Mobile menu */}
       <div className="md:hidden flex items-center relative">
@@ -58,10 +64,19 @@ const Navbar: React.FC<NavbarProps> = ({ onAIClick, isAIPanelOpen, onPatchClick 
                 setMenuOpen(false);
               }}
             />
-            <FiSettings className="text-white text-xl cursor-pointer hover:text-blue-400 transition-colors" title="Settings" />
+            <FiSettings
+              className="text-white text-xl cursor-pointer hover:text-blue-400 transition-colors"
+              title="Settings"
+              onClick={() => {
+                setSettingsOpen(true);
+                setMenuOpen(false);
+              }}
+            />
           </div>
         )}
       </div>
+
+      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
     </header>
   );
 };

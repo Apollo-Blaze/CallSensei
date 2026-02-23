@@ -1,24 +1,46 @@
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
+import { SETTINGS_KEYS, getSetting } from "../utils/settings";
 
 // Initialize the Gemini model
 let model: ChatGoogleGenerativeAI | null = null;
+let modelApiKey: string | null = null;
+let modelId: string | null = null;
+
+function resolveGeminiApiKey(): string | null {
+    // Prefer user-provided key (settings) over build-time env.
+    const fromSettings = getSetting(SETTINGS_KEYS.GEMINI_API_KEY);
+    if (fromSettings && fromSettings.trim()) return fromSettings.trim();
+    const fromEnv = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
+    return fromEnv && fromEnv.trim() ? fromEnv.trim() : null;
+}
+
+function resolveGeminiModelId(): string {
+    const stored = getSetting(SETTINGS_KEYS.AI_MODEL);
+    return stored && stored.trim() ? stored.trim() : "gemini-2.5-flash-lite";
+}
 
 function getModel(): ChatGoogleGenerativeAI {
-    if (!model) {
-        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
-        if (!apiKey) {
-            throw new Error("Gemini API key not found. Please set VITE_GEMINI_API_KEY in your .env file.");
-        }
+    const apiKey = resolveGeminiApiKey();
+    if (!apiKey) {
+        throw new Error("Gemini API key not found. Add it in Settings or set VITE_GEMINI_API_KEY in your .env file.");
+    }
+
+    const currentModelId = resolveGeminiModelId();
+
+    // Recreate the model if the key or model changed.
+    if (!model || modelApiKey !== apiKey || modelId !== currentModelId) {
+        modelApiKey = apiKey;
+        modelId = currentModelId;
         model = new ChatGoogleGenerativeAI({
             // Use a supported Gemini model ID for the public API
             // If this ever fails again, check the latest model IDs in Google AI Studio.
-            model: "gemini-2.5-flash",
+            model: currentModelId,
             temperature: 0.7,
-            apiKey: apiKey,
+            apiKey,
         });
     }
-    return model;
+    return model!;
 }
 
 export interface AiRequestSummary {
@@ -49,10 +71,102 @@ interface AiExplanationArgs {
     userQuestion?: string;
     mode?: AiExplanationMode;
     history?: AiChatTurn[];
+    activityName?: string;
+    activityId?: string;
 }
 
 const truncateBody = (body: string, limit = 2000) =>
     body.length > limit ? `${body.substring(0, limit)}... (truncated)` : body || "Empty";
+
+export interface AiCodeFixArgs {
+    request: AiRequestSummary;
+    response?: AiResponseSummary;
+    errorMessage?: string;
+    filePath: string;
+    fileContent: string;
+    activityName?: string;
+    activityId?: string;
+}
+
+export async function generateAiCodeFix({
+    request,
+    response,
+    errorMessage,
+    filePath,
+    fileContent,
+    activityName,
+    activityId,
+}: AiCodeFixArgs): Promise<string> {
+    try {
+        const geminiModel = getModel();
+
+        const systemPrompt = `You are an expert code reviewer and fixer. Analyze the HTTP request and response (if available) 
+along with the provided source code file, and generate a fixed version of the code that addresses any issues 
+identified in the request/response context.
+
+Guidelines:
+- Return ONLY the complete fixed code, ready to use (no explanations, no markdown code blocks, no diff format)
+- Fix bugs, improve error handling, add missing functionality, or optimize based on the request/response analysis
+- Maintain the same code style and structure
+- If the file is TypeScript/JavaScript, ensure proper types and error handling
+- Include all necessary imports and exports
+- The output should be the complete file content, not a diff or patch`;
+
+        const activitySection =
+            (activityName || activityId)
+                ? `Activity:
+- Name: ${activityName || "Unknown"}
+- Id: ${activityId || "Unknown"}`
+                : "";
+
+        const requestSection = `Request:
+- Method: ${request.method}
+- URL: ${request.url}
+- Headers: ${JSON.stringify(request.headers, null, 2)}
+- Body: ${request.body || "None"}`;
+
+        const responseSection = response
+            ? `Response:
+- Status: ${response.status} ${response.statusText}
+- Headers: ${JSON.stringify(response.headers, null, 2)}
+- Body: ${truncateBody(response.body, 5000)}`
+            : "Response: Not available yet.";
+
+        const errorSection = errorMessage ? `Error: ${errorMessage}` : "";
+
+        const userPrompt = `${activitySection ? activitySection + "\n\n" : ""}${requestSection}
+
+${responseSection}
+
+${errorSection ? errorSection + "\n\n" : ""}File to fix:
+- Path: ${filePath}
+- Current content:
+\`\`\`
+${fileContent}
+\`\`\`
+
+Analyze the request/response and the code file. Generate a fixed version of the code that addresses any issues.
+Return ONLY the complete fixed code content, without markdown formatting or explanations.`;
+
+        const messages = [
+            new SystemMessage(systemPrompt),
+            new HumanMessage(userPrompt),
+        ];
+
+        const result = await geminiModel.invoke(messages);
+        console.log("[AI] Code fix generated:", result.content);
+        
+        // Clean up the response - remove markdown code blocks if present
+        let fixedCode = result.content as string;
+        // Remove markdown code blocks if present
+        fixedCode = fixedCode.replace(/^```[\w]*\n/gm, '').replace(/^```$/gm, '').trim();
+        
+        return fixedCode;
+    } catch (error) {
+        console.error("Error generating AI code fix:", error);
+        return error instanceof Error ? error.message : "Unable to generate AI code fix.";
+    }
+}
 
 export async function generateAiExplanation({
     request,
@@ -61,6 +175,8 @@ export async function generateAiExplanation({
     userQuestion,
     mode = "auto",
     history,
+    activityName,
+    activityId,
 }: AiExplanationArgs): Promise<string> {
     try {
         const geminiModel = getModel();
@@ -96,6 +212,13 @@ summarize what is happening, highlight important details, and suggest next steps
 Keep the tone concise (3-4 sentences) and actionable.`;
         })();
 
+        const activitySection =
+            (activityName || activityId)
+                ? `Activity:
+- Name: ${activityName || "Unknown"}
+- Id: ${activityId || "Unknown"}`
+                : "";
+
         const requestSection = `Request:
 - Method: ${request.method}
 - URL: ${request.url}
@@ -111,7 +234,7 @@ Keep the tone concise (3-4 sentences) and actionable.`;
 
         const errorSection = errorMessage ? `Error: ${errorMessage}` : "";
 
-        const baseContext = `${requestSection}
+        const baseContext = `${activitySection ? activitySection + "\n\n" : ""}${requestSection}
 
 ${responseSection}
 

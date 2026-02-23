@@ -40,6 +40,26 @@ app.on('activate', () => {
         void createMainWindow();
     }
 });
+ipcMain.handle("github-login", async (_, code) => {
+    const res = await fetch("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        client_id: "Ov23liR0F5RL7r5YcC8H",
+        //client_secret: process.env.GITHUB_CLIENT_SECRET,
+        client_secret: "4d503db4c090502b393edd5ecbe7ffe3360c8b10",
+        code,
+      }),
+    });
+    console.log("result from login",res);
+    const data =  res.json();
+    const token = data.access_token
+    return token;
+  });
+  
 app.whenReady().then(() => {
     void createMainWindow();
 });

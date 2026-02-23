@@ -57,6 +57,24 @@ app.whenReady().then(() => {
     void createMainWindow()
 })
 
+// GitHub OAuth bridge used by `window.electron.githubLogin`
+ipcMain.handle('github-login', async (_event: any, code: string) => {
+  const res = await fetch('https://github.com/login/oauth/access_token', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      client_id: 'Ov23liR0F5RL7r5YcC8H',
+      client_secret: process.env.GITHUB_CLIENT_SECRET,
+      code
+    })
+  })
+
+  return await res.json()
+})
+
 // Very small unified-diff applier (limited). For production, prefer a library.
 function applyUnifiedDiff(baseDir: string, patchText: string): { ok: boolean; message?: string; written?: string[] } {
     const filesWritten: string[] = []
@@ -173,6 +191,18 @@ ipcMain.handle('fs:writeFile', async (_event: any, args: { path: string; content
         return { ok: true }
     } catch (e: any) {
         return { ok: false, message: e?.message || 'Failed to write file' }
+    }
+})
+
+ipcMain.handle('fs:readFile', async (_event: any, args: { path: string }) => {
+    try {
+        if (!fs.existsSync(args.path)) {
+            return { ok: false, message: 'File does not exist' }
+        }
+        const content = fs.readFileSync(args.path, 'utf8')
+        return { ok: true, content }
+    } catch (e: any) {
+        return { ok: false, message: e?.message || 'Failed to read file' }
     }
 })
 

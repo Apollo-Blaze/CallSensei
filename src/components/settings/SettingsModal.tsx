@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { SETTINGS_KEYS, getSetting, setSetting } from "../../utils/settings";
+import GitHubImportSection from "./GitHubImportButton";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -20,7 +21,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const [aiModel, setAiModel] = useState(getSetting(SETTINGS_KEYS.AI_MODEL) || "gemini-2.5-flash-lite");
   const [openaiModel, setOpenaiModel] = useState(getSetting(SETTINGS_KEYS.OPENAI_MODEL) || "gpt-4.1-mini");
   const [groqModel, setGroqModel] = useState(getSetting(SETTINGS_KEYS.GROQ_MODEL) || "llama-3.1-8b-instant");
-  const [activeSection, setActiveSection] = useState<"general" | "appearance" | "ai" | "privacy">("general");
+  const [activeSection, setActiveSection] = useState<"general" | "appearance" | "ai" | "privacy" | "githubimport">("general");
 
   useEffect(() => {
     if (!isOpen) return;
@@ -133,6 +134,18 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
               }`}
             >
               Privacy
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveSection("githubimport")}
+              className={`w-full text-left rounded-md px-3 py-2 transition ${
+                activeSection === "privacy"
+                  ? "bg-blue-600 text-white"
+                  : "hover:bg-white/5"
+              }`}
+            >
+              GitHub Import
             </button>
           </nav>
 
@@ -407,6 +420,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                   </label>
                 </div>
               </section>
+            )} 
+            
+            {activeSection === "githubimport" && (
+              <GitHubImportSection />
             )}
           </div>
         </div>

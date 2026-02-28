@@ -57,7 +57,7 @@ ipcMain.handle('github-login', async (_event, code) => {
         },
         body: JSON.stringify({
             client_id: 'Ov23liR0F5RL7r5YcC8H',
-            client_secret: process.env.GITHUB_CLIENT_SECRET,
+            client_secret: '52a3b8a6d9c798b3d3b16ffb60b4f3e485022e72',
             code
         })
     });

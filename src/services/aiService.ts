@@ -1,46 +1,221 @@
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
-import { HumanMessage, SystemMessage, AIMessage } from "@langchain/core/messages";
+import {
+    HumanMessage,
+    SystemMessage,
+    AIMessage,
+    type BaseMessage,
+} from "@langchain/core/messages";
 import { SETTINGS_KEYS, getSetting } from "../utils/settings";
 
-// Initialize the Gemini model
-let model: ChatGoogleGenerativeAI | null = null;
-let modelApiKey: string | null = null;
-let modelId: string | null = null;
+type AiProvider = "gemini" | "openai" | "groq";
 
-function resolveGeminiApiKey(): string | null {
+interface ChatModelLike {
+    invoke(messages: BaseMessage[]): Promise<AIMessage>;
+}
+
+// Single cached chat model (Gemini, OpenAI, or Groq) based on settings.
+let cachedModel: ChatModelLike | null = null;
+let cachedSignature: string | null = null;
+
+function resolveProvider(): AiProvider {
+    const fromSettings = getSetting(SETTINGS_KEYS.AI_PROVIDER) as AiProvider | null;
+    if (fromSettings === "openai" || fromSettings === "groq" || fromSettings === "gemini") {
+        return fromSettings;
+    }
+    return "gemini";
+}
+
+function resolveGeminiConfig(): { apiKey: string; model: string } {
     // Prefer user-provided key (settings) over build-time env.
     const fromSettings = getSetting(SETTINGS_KEYS.GEMINI_API_KEY);
-    if (fromSettings && fromSettings.trim()) return fromSettings.trim();
-    const fromEnv = import.meta.env.VITE_GEMINI_API_KEY as string | undefined;
-    return fromEnv && fromEnv.trim() ? fromEnv.trim() : null;
-}
-
-function resolveGeminiModelId(): string {
-    const stored = getSetting(SETTINGS_KEYS.AI_MODEL);
-    return stored && stored.trim() ? stored.trim() : "gemini-2.5-flash-lite";
-}
-
-function getModel(): ChatGoogleGenerativeAI {
-    const apiKey = resolveGeminiApiKey();
+    const apiKey =
+        (fromSettings && fromSettings.trim()) ||
+        (import.meta.env.VITE_GEMINI_API_KEY as string | undefined)?.trim() ||
+        "";
     if (!apiKey) {
-        throw new Error("Gemini API key not found. Add it in Settings or set VITE_GEMINI_API_KEY in your .env file.");
+        throw new Error(
+            "Gemini API key not found. Add it in Settings or set VITE_GEMINI_API_KEY in your .env file.",
+        );
     }
 
-    const currentModelId = resolveGeminiModelId();
+    const storedModel = getSetting(SETTINGS_KEYS.AI_MODEL);
+    const model = storedModel && storedModel.trim() ? storedModel.trim() : "gemini-2.5-flash-lite";
+    return { apiKey, model };
+}
 
-    // Recreate the model if the key or model changed.
-    if (!model || modelApiKey !== apiKey || modelId !== currentModelId) {
-        modelApiKey = apiKey;
-        modelId = currentModelId;
-        model = new ChatGoogleGenerativeAI({
-            // Use a supported Gemini model ID for the public API
-            // If this ever fails again, check the latest model IDs in Google AI Studio.
-            model: currentModelId,
-            temperature: 0.7,
-            apiKey,
+function resolveOpenAIConfig(): { apiKey: string; model: string; baseUrl: string } {
+    const fromSettings = getSetting(SETTINGS_KEYS.OPENAI_API_KEY);
+    const apiKey =
+       (fromSettings && fromSettings.trim()) 
+         || (import.meta.env.VITE_OPENAI_API_KEY as string | undefined)?.trim() || 
+        "";
+    if (!apiKey) {
+        throw new Error(
+            "OpenAI API key not found. Add it in Settings (AI & API) or set VITE_OPENAI_API_KEY in your .env file.",
+        );
+    }
+
+    const storedModel = getSetting(SETTINGS_KEYS.OPENAI_MODEL);
+    const model = storedModel && storedModel.trim() ? storedModel.trim() : "gpt-4.1-mini"; // 👈 fixed, reads from settings
+    
+    const storedBaseUrl = getSetting(SETTINGS_KEYS.OPENAI_BASE_URL);
+    const baseUrl =
+        (storedBaseUrl && storedBaseUrl.trim())
+        || (import.meta.env.VITE_OPENAI_BASE_URL as string | undefined)?.trim()
+        || "https://api.openai.com/v1";
+
+    return { apiKey, model, baseUrl };
+}
+
+function resolveGroqConfig(): { apiKey: string; model: string } {
+    const fromSettings = getSetting(SETTINGS_KEYS.GROQ_API_KEY);
+    const apiKey =
+        (fromSettings && fromSettings.trim()) ||
+        (import.meta.env.VITE_GROQ_API_KEY as string | undefined)?.trim() ||
+        "";
+    if (!apiKey) {
+        throw new Error(
+            "Groq API key not found. Add it in Settings (AI & API) or set VITE_GROQ_API_KEY in your .env file.",
+        );
+    }
+
+    const storedModel = getSetting(SETTINGS_KEYS.GROQ_MODEL);
+    const model =
+        storedModel && storedModel.trim() ? storedModel.trim() : "llama-3.3-70b-versatile";
+    return { apiKey, model };
+}
+
+function toOpenAICompatibleMessages(messages: BaseMessage[]) {
+    return messages.map((m) => {
+        const type = m._getType();
+        if (type === "system") {
+            return { role: "system", content: m.content };
+        }
+        if (type === "ai") {
+            return { role: "assistant", content: m.content };
+        }
+        // "human" and everything else maps to "user"
+        return { role: "user", content: m.content };
+    });
+}
+
+class OpenAIChatAdapter implements ChatModelLike {
+    private apiKey: string;
+    private model: string;
+    private baseUrl: string; // 👈 new
+
+    constructor(apiKey: string, model: string, baseUrl: string) { // 👈 new param
+        this.apiKey = apiKey;
+        this.model = model;
+        this.baseUrl = baseUrl.replace(/\/$/, ""); // strip trailing slash
+    }
+
+
+    async invoke(messages: BaseMessage[]): Promise<AIMessage> {
+        console.log("////////////////////////////openai model:", this.model);
+        const payload = {
+            model: this.model,
+            messages: toOpenAICompatibleMessages(messages),
+        };
+
+        const response = await fetch(`${this.baseUrl}/chat/completions`, { // 👈 uses instance baseUrl
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${this.apiKey}`,
+            },
+            body: JSON.stringify(payload),
         });
+
+        if (!response.ok) {
+            const text = await response.text();
+            throw new Error(`OpenAI API error (${response.status}): ${text}`);
+        }
+
+        const data = await response.json();
+        const content =
+            data.choices?.[0]?.message?.content ??
+            "OpenAI did not return any content for this request.";
+        return new AIMessage(content);
     }
-    return model!;
+}
+
+class GroqChatAdapter implements ChatModelLike {
+    private apiKey: string;
+    private model: string;
+
+    constructor(apiKey: string, model: string) {
+        this.apiKey = apiKey;
+        this.model = model;
+    }
+
+    async invoke(messages: BaseMessage[]): Promise<AIMessage> {
+        const payload = {
+            model: this.model,
+            messages: toOpenAICompatibleMessages(messages),
+        };
+
+        // Groq exposes an OpenAI-compatible chat completions API.
+        const response = await fetch(
+            "https://api.groq.com/openai/v1/chat/completions",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${this.apiKey}`,
+                },
+                body: JSON.stringify(payload),
+            },
+        );
+
+        if (!response.ok) {
+            const text = await response.text();
+            throw new Error(`Groq API error (${response.status}): ${text}`);
+        }
+
+        const data = await response.json();
+        const content =
+            data.choices?.[0]?.message?.content ??
+            "Groq did not return any content for this request.";
+        return new AIMessage(content);
+    }
+}
+
+function getModel(): ChatModelLike {
+    const provider = resolveProvider();
+
+    if (provider === "gemini") {
+        const { apiKey, model } = resolveGeminiConfig();
+        const signature = `gemini:${apiKey}:${model}`;
+        if (!cachedModel || cachedSignature !== signature) {
+            cachedModel = new ChatGoogleGenerativeAI({
+                model,
+                temperature: 0.7,
+                apiKey,
+            });
+            cachedSignature = signature;
+        }
+        return cachedModel;
+    }
+
+    if (provider === "openai") {
+        const { apiKey, model, baseUrl } = resolveOpenAIConfig(); // 👈 destructure baseUrl
+        const signature = `openai:${apiKey}:${model}:${baseUrl}`;
+        if (!cachedModel || cachedSignature !== signature) {
+            cachedModel = new OpenAIChatAdapter(apiKey, model, baseUrl); // 👈 pass it
+            cachedSignature = signature;
+        }
+        return cachedModel;
+    }
+
+    // provider === "groq"
+    const { apiKey, model } = resolveGroqConfig();
+    const signature = `groq:${apiKey}:${model}`;
+    if (!cachedModel || cachedSignature !== signature) {
+        cachedModel = new GroqChatAdapter(apiKey, model);
+        cachedSignature = signature;
+    }
+    return cachedModel;
 }
 
 export interface AiRequestSummary {
@@ -98,7 +273,7 @@ export async function generateAiCodeFix({
     activityId,
 }: AiCodeFixArgs): Promise<string> {
     try {
-        const geminiModel = getModel();
+        const chatModel = getModel();
 
         const systemPrompt = `You are an expert code reviewer and fixer. Analyze the HTTP request and response (if available) 
 along with the provided source code file, and generate a fixed version of the code that addresses any issues 
@@ -153,7 +328,7 @@ Return ONLY the complete fixed code content, without markdown formatting or expl
             new HumanMessage(userPrompt),
         ];
 
-        const result = await geminiModel.invoke(messages);
+        const result = await chatModel.invoke(messages);
         console.log("[AI] Code fix generated:", result.content);
         
         // Clean up the response - remove markdown code blocks if present
@@ -179,7 +354,7 @@ export async function generateAiExplanation({
     activityId,
 }: AiExplanationArgs): Promise<string> {
     try {
-        const geminiModel = getModel();
+        const chatModel = getModel();
 
         const systemPrompt = (() => {
             if (mode === "request") {
@@ -267,7 +442,9 @@ Explain the intent of the request, what the response indicates, and recommend an
             new HumanMessage(userPrompt),
         ];
 
-        const explanation = await geminiModel.invoke(messages);
+        console.log("messages", messages);
+
+        const explanation = await chatModel.invoke(messages);
         console.log("[AI] Combined explanation:", explanation.content);
         return explanation.content as string;
     } catch (error) {

@@ -16,21 +16,21 @@ export const useRequestFormState = () => {
 
     const [method, setMethod] = useState<RequestMethod>(activity?.request.method || "GET");
     const [url, setUrl] = useState(activity?.url || "");
-    const [headers, setHeaders] = useState(activity ? JSON.stringify(activity.request.headers, null, 2) : "{}");
+    const [headers, setHeaders] = useState<Record<string, string>>(activity?.request.headers ?? {});
     const [body, setBody] = useState(activity?.request.body || "");
 
     // Sync form state with selected activity (only when activity ID changes, not when activity updates)
     useEffect(() => {
         setMethod(activity?.request.method || "GET");
         setUrl(activity?.url || "");
-        setHeaders(activity ? JSON.stringify(activity.request.headers, null, 2) : "{}");
+        setHeaders(activity?.request.headers ?? {});
         setBody(activity?.request.body || "");
     }, [selectedActivityId]); // Use selectedActivityId instead of activity to prevent overwriting during autosave
 
     const resetForm = () => {
         setMethod("GET");
         setUrl("");
-        setHeaders("{}");
+        setHeaders({});
         setBody("");
     };
 

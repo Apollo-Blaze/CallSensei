@@ -3,7 +3,8 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import fs from 'node:fs'
 import os from 'node:os'
-
+import { spawn, type ChildProcess } from 'node:child_process'
+const terminalProcesses = new Map<string, ChildProcess>()
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
@@ -67,7 +68,7 @@ ipcMain.handle('github-login', async (_event: any, code: string) => {
     },
     body: JSON.stringify({
       client_id: 'Ov23liR0F5RL7r5YcC8H',
-      client_secret: process.env.GITHUB_CLIENT_SECRET,
+      client_secret: '52a3b8a6d9c798b3d3b16ffb60b4f3e485022e72',
       code
     })
   })
@@ -206,5 +207,91 @@ ipcMain.handle('fs:readFile', async (_event: any, args: { path: string }) => {
     }
 })
 
+ipcMain.handle('terminal:spawn', async (event, args: { sessionId: string; command: string; cwd?: string }) => {
+    const { sessionId, command, cwd } = args
+ 
+    // Kill any existing process for this session
+    const existing = terminalProcesses.get(sessionId)
+    if (existing) {
+        try { existing.kill() } catch {}
+        terminalProcesses.delete(sessionId)
+    }
+ 
+    const shell = process.platform === 'win32' ? 'cmd.exe' : '/bin/sh'
+    const shellArgs = process.platform === 'win32' ? ['/c', command] : ['-c', command]
+ 
+    const child = spawn(shell, shellArgs, {
+        cwd: cwd || process.cwd(),
+        env: { ...process.env },
+        // Don't use a pty — keeps it simple and cross-platform
+        stdio: ['pipe', 'pipe', 'pipe'],
+    })
+ 
+    terminalProcesses.set(sessionId, child)
+ 
+    const sender = event.sender
+ 
+    const sendData = (data: Buffer) => {
+        if (sender.isDestroyed()) return
+        sender.send('terminal:data', { sessionId, data: data.toString('utf8') })
+    }
+ 
+    child.stdout?.on('data', sendData)
+    child.stderr?.on('data', sendData)
+ 
+    child.on('close', (code) => {
+        terminalProcesses.delete(sessionId)
+        if (!sender.isDestroyed()) {
+            sender.send('terminal:exit', { sessionId, code })
+        }
+    })
+ 
+    child.on('error', (err) => {
+        if (!sender.isDestroyed()) {
+            sender.send('terminal:data', { sessionId, data: `\n[Process error: ${err.message}]\n` })
+            sender.send('terminal:exit', { sessionId, code: 1 })
+        }
+        terminalProcesses.delete(sessionId)
+    })
+ 
+    return { ok: true, pid: child.pid }
+})
+ 
+ipcMain.handle('terminal:kill', async (_event, args: { sessionId: string }) => {
+    const child = terminalProcesses.get(args.sessionId)
+    if (!child) return { ok: false, message: 'No process found for session' }
+    try {
+        // Send SIGINT first (Ctrl+C), then SIGTERM after 1s if still alive
+        child.kill('SIGINT')
+        setTimeout(() => {
+            if (terminalProcesses.has(args.sessionId)) {
+                try { child.kill('SIGTERM') } catch {}
+            }
+        }, 1000)
+        return { ok: true }
+    } catch (e: any) {
+        return { ok: false, message: e?.message }
+    }
+})
+ 
+ipcMain.handle('terminal:write', async (_event, args: { sessionId: string; text: string }) => {
+    const child = terminalProcesses.get(args.sessionId)
+    if (!child?.stdin) return { ok: false, message: 'No stdin available' }
+    try {
+        child.stdin.write(args.text)
+        return { ok: true }
+    } catch (e: any) {
+        return { ok: false, message: e?.message }
+    }
+})
+ 
+// Clean up all terminal processes when the app quits
+app.on('before-quit', () => {
+    for (const [, child] of terminalProcesses) {
+        try { child.kill() } catch {}
+    }
+    terminalProcesses.clear()
+})
+ 
 
 

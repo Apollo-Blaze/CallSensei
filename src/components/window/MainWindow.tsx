@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Navbar from "../Navbar";
 import PatchReview from "./ai/PatchReview";
+import TerminalAndPatchReview from "./terminal/TerminalAndPatchReview";
 import AIPanel from "./ai/AIPanel";
 import RequestForm from "../request/RequestForm";
 import ResponseViewer from "../response/ResponseViewer";
@@ -37,7 +38,7 @@ const MainWindow: React.FC<MainWindowProps> = ({
                         <ResponseViewer />
                         {isPatchOpen && (
                             <div className="mt-6">
-                                <PatchReview />
+                                <TerminalAndPatchReview />
                             </div>
                         )}
                     </div>

@@ -35,12 +35,32 @@ contextBridge.exposeInMainWorld('api', {
       filePath: string
     ): Promise<{ ok: boolean; content?: string; message?: string }> =>
       ipcRenderer.invoke('fs:readFile', { path: filePath })
-  }
+  },
+
+  terminal: {
+    spawn: (sessionId: string, command: string, cwd?: string) =>
+        ipcRenderer.invoke('terminal:spawn', { sessionId, command, cwd }),
+    kill:  (sessionId: string) =>
+        ipcRenderer.invoke('terminal:kill',  { sessionId }),
+    write: (sessionId: string, text: string) =>
+        ipcRenderer.invoke('terminal:write', { sessionId, text }),
+},
 })
 
 // Bridge used by `GitHubButton.tsx` – exposes `window.electron.githubLogin`
 contextBridge.exposeInMainWorld('electron', {
-  githubLogin: (code: string): Promise<any> =>
-    ipcRenderer.invoke('github-login', code)
+  githubLogin: (code: string): Promise<any> =>{
+    return ipcRenderer.invoke('github-login', code)
+  },
+    
+
+  // Required for terminal streaming — lets the renderer receive push events
+  ipcRenderer: {
+    on: (channel: string, listener: (...args: any[]) => void) =>
+      ipcRenderer.on(channel, listener),
+    removeListener: (channel: string, listener: (...args: any[]) => void) =>
+      ipcRenderer.removeListener(channel, listener),
+  },
+
 })
 

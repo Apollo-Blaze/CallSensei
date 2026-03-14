@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { SETTINGS_KEYS, getSetting, setSetting } from "../../utils/settings";
 import GitHubImportSection from "./GitHubImportButton";
 
@@ -48,6 +49,16 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isOpen, onClose]);
 
+  // Prevent background scroll while the modal is open (also helps with "behind" feeling in Electron)
+  useEffect(() => {
+    if (!isOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleSave = () => {
@@ -65,9 +76,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     onClose();
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70"
       role="dialog"
       aria-modal="true"
       aria-label="Settings"
@@ -75,7 +86,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-[min(760px,95vw)] rounded-lg border border-white/10 bg-[#18182a] shadow-xl">
+      <div className="w-[min(760px,95vw)] rounded-xl border border-slate-700/60 bg-slate-950/95 shadow-2xl shadow-slate-950/90 backdrop-blur-xl">
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/10">
           <div className="text-lg font-semibold text-white">Settings</div>
           <button
@@ -94,44 +105,40 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
             <button
               type="button"
               onClick={() => setActiveSection("general")}
-              className={`w-full text-left rounded-md px-3 py-2 transition ${
-                activeSection === "general"
-                  ? "bg-blue-600 text-white"
-                  : "hover:bg-white/5"
-              }`}
+              className={`w-full text-left rounded-md px-3 py-2 transition ${activeSection === "general"
+                ? "bg-blue-600 text-white"
+                : "hover:bg-white/5"
+                }`}
             >
               General
             </button>
             <button
               type="button"
               onClick={() => setActiveSection("appearance")}
-              className={`w-full text-left rounded-md px-3 py-2 transition ${
-                activeSection === "appearance"
-                  ? "bg-blue-600 text-white"
-                  : "hover:bg-white/5"
-              }`}
+              className={`w-full text-left rounded-md px-3 py-2 transition ${activeSection === "appearance"
+                ? "bg-blue-600 text-white"
+                : "hover:bg-white/5"
+                }`}
             >
               Appearance
             </button>
             <button
               type="button"
               onClick={() => setActiveSection("ai")}
-              className={`w-full text-left rounded-md px-3 py-2 transition ${
-                activeSection === "ai"
-                  ? "bg-blue-600 text-white"
-                  : "hover:bg-white/5"
-              }`}
+              className={`w-full text-left rounded-md px-3 py-2 transition ${activeSection === "ai"
+                ? "bg-blue-600 text-white"
+                : "hover:bg-white/5"
+                }`}
             >
               AI &amp; API
             </button>
             <button
               type="button"
               onClick={() => setActiveSection("privacy")}
-              className={`w-full text-left rounded-md px-3 py-2 transition ${
-                activeSection === "privacy"
-                  ? "bg-blue-600 text-white"
-                  : "hover:bg-white/5"
-              }`}
+              className={`w-full text-left rounded-md px-3 py-2 transition ${activeSection === "privacy"
+                ? "bg-blue-600 text-white"
+                : "hover:bg-white/5"
+                }`}
             >
               Privacy
             </button>
@@ -139,11 +146,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
             <button
               type="button"
               onClick={() => setActiveSection("githubimport")}
-              className={`w-full text-left rounded-md px-3 py-2 transition ${
-                activeSection === "privacy"
-                  ? "bg-blue-600 text-white"
-                  : "hover:bg-white/5"
-              }`}
+              className={`w-full text-left rounded-md px-3 py-2 transition ${activeSection === "githubimport"
+                ? "bg-blue-600 text-white"
+                : "hover:bg-white/5"
+                }`}
             >
               GitHub Import
             </button>
@@ -420,8 +426,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
                   </label>
                 </div>
               </section>
-            )} 
-            
+            )}
+
             {activeSection === "githubimport" && (
               <GitHubImportSection />
             )}
@@ -443,7 +449,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

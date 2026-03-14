@@ -65,7 +65,7 @@ export interface AiChatTurn {
 }
 
 interface AiExplanationArgs {
-    request: AiRequestSummary;
+    request: AiRequestSummary | undefined;
     response?: AiResponseSummary;
     errorMessage?: string;
     userQuestion?: string;
@@ -204,7 +204,7 @@ Limit yourself to 5-7 short bullet points.`;
             if (mode === "chat") {
                 return `You are an expert API assistant having an interactive conversation with a developer.
 Use the request/response as context, but Only answer the user's latest question based on the context provided.
-Be concise, practical, and avoid repeating previously obvious details unless they are directly relevant.`;
+Be concise, practical, and avoid repeating previously obvious details unless they are directly relevant. If the context is not provided and the question is related to API in general, explain it.`;
             }
             // default "auto"
             return `You are an expert API assistant. Given the HTTP request (and optionally the response/error),
@@ -220,10 +220,10 @@ Keep the tone concise (3-4 sentences) and actionable.`;
                 : "";
 
         const requestSection = `Request:
-- Method: ${request.method}
-- URL: ${request.url}
-- Headers: ${JSON.stringify(request.headers, null, 2)}
-- Body: ${request.body || "None"}`;
+- Method: ${request?.method}
+- URL: ${request?.url}
+- Headers: ${JSON.stringify(request?.headers, null, 2)}
+- Body: ${request?.body || "None"}`;
 
         const responseSection = response
             ? `Response:

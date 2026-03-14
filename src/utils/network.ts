@@ -77,7 +77,8 @@ export const networkUtils: NetworkUtils = {
             }
 
             // Generate combined AI explanation (request + response)
-            const explanation = await generateAiExplanation({
+            ///////////////////////////////////TO BE CHANGED//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+            {/*const explanation = await generateAiExplanation({
                 request: {
                     method: reqData.method,
                     url: reqData.url,
@@ -95,7 +96,8 @@ export const networkUtils: NetworkUtils = {
                 activityName,
             });
 
-            setAIExplanation(explanation);
+            setAIExplanation(explanation);*/}            
+            ///////////////////////////////////TO BE CHANGED//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
             // Rename activity if it's a new request
             if (

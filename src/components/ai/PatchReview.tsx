@@ -1,10 +1,10 @@
-import React, { useState ,useEffect ,useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useSelector } from "react-redux";
-import injectService from "../../../services/injectService";
-import { generateAiCodeFix, type AiRequestSummary, type AiResponseSummary } from "../../../services/aiService";
-import type { RootState } from "../../../state/store";
-import type { ActivityModel } from "../../../models/ActivityModel";
-import type { RequestModel, ResponseModel } from "../../../models";
+import injectService from "../../services/injectService";
+import { generateAiCodeFix, type AiRequestSummary, type AiResponseSummary } from "../../services/aiService";
+import type { RootState } from "../../state/store";
+import type { ActivityModel } from "../../models/ActivityModel";
+import type { RequestModel, ResponseModel } from "../../models";
 import * as monaco from 'monaco-editor';
 
 const PatchReview: React.FC = () => {
@@ -62,137 +62,137 @@ const PatchReview: React.FC = () => {
         return langMap[ext || ''] || 'plaintext';
     };
 
-  // Initialize Monaco diff editor
-  useEffect(() => {
-    if (!containerRef.current) return;
+    // Initialize Monaco diff editor
+    useEffect(() => {
+        if (!containerRef.current) return;
 
-    // CREATE editor only AFTER DOM exists
-    diffEditorRef.current = monaco.editor.createDiffEditor(
-      containerRef.current,
-      {
-        theme: "vs-dark",
-        automaticLayout: true,
-        renderSideBySide: true,
-      }
-    );
+        // CREATE editor only AFTER DOM exists
+        diffEditorRef.current = monaco.editor.createDiffEditor(
+            containerRef.current,
+            {
+                theme: "vs-dark",
+                automaticLayout: true,
+                renderSideBySide: true,
+            }
+        );
 
-    originalModelRef.current = monaco.editor.createModel(
-      "",
-      "plaintext"
-    );
+        originalModelRef.current = monaco.editor.createModel(
+            "",
+            "plaintext"
+        );
 
-    modifiedModelRef.current = monaco.editor.createModel(
-      "",
-      "plaintext"
-    );
+        modifiedModelRef.current = monaco.editor.createModel(
+            "",
+            "plaintext"
+        );
 
-    diffEditorRef.current.setModel({
-      original: originalModelRef.current,
-      modified: modifiedModelRef.current,
-    });
+        diffEditorRef.current.setModel({
+            original: originalModelRef.current,
+            modified: modifiedModelRef.current,
+        });
 
-    // Cleanup (VERY important in React)
-    return () => {
-      // Store refs locally to avoid race conditions
-      const editor = diffEditorRef.current;
-      const originalModel = originalModelRef.current;
-      const modifiedModel = modifiedModelRef.current;
-      
-      // Clear refs first to prevent further access
-      diffEditorRef.current = null;
-      originalModelRef.current = null;
-      modifiedModelRef.current = null;
-      
-      // Dispose diff editor first (this releases its reference to models)
-      if (editor) {
-        try {
-          editor.dispose();
-        } catch (e) {
-          // Editor might already be disposed, ignore
-        }
-      }
-      
-      // Then dispose models separately
-      if (originalModel) {
-        try {
-          originalModel.dispose();
-        } catch (e) {
-          // Model might already be disposed, ignore
-        }
-      }
-      
-      if (modifiedModel) {
-        try {
-          modifiedModel.dispose();
-        } catch (e) {
-          // Model might already be disposed, ignore
-        }
-      }
-    };
-  }, []);
+        // Cleanup (VERY important in React)
+        return () => {
+            // Store refs locally to avoid race conditions
+            const editor = diffEditorRef.current;
+            const originalModel = originalModelRef.current;
+            const modifiedModel = modifiedModelRef.current;
 
-  // Load file content when selectedFile changes
-  useEffect(() => {
-    const loadFileContent = async () => {
-      if (!selectedFile || !electronAvailable) {
-        setFileContent("");
-        return;
-      }
+            // Clear refs first to prevent further access
+            diffEditorRef.current = null;
+            originalModelRef.current = null;
+            modifiedModelRef.current = null;
 
-      try {
-        const res = await injectService.readFile(selectedFile);
-        if (res.ok && res.content !== undefined) {
-          setFileContent(res.content);
-          // Update original model with file content
-          if (originalModelRef.current) {
+            // Dispose diff editor first (this releases its reference to models)
+            if (editor) {
+                try {
+                    editor.dispose();
+                } catch (e) {
+                    // Editor might already be disposed, ignore
+                }
+            }
+
+            // Then dispose models separately
+            if (originalModel) {
+                try {
+                    originalModel.dispose();
+                } catch (e) {
+                    // Model might already be disposed, ignore
+                }
+            }
+
+            if (modifiedModel) {
+                try {
+                    modifiedModel.dispose();
+                } catch (e) {
+                    // Model might already be disposed, ignore
+                }
+            }
+        };
+    }, []);
+
+    // Load file content when selectedFile changes
+    useEffect(() => {
+        const loadFileContent = async () => {
+            if (!selectedFile || !electronAvailable) {
+                setFileContent("");
+                return;
+            }
+
+            try {
+                const res = await injectService.readFile(selectedFile);
+                if (res.ok && res.content !== undefined) {
+                    setFileContent(res.content);
+                    // Update original model with file content
+                    if (originalModelRef.current) {
+                        const language = getLanguageFromPath(selectedFile);
+                        originalModelRef.current.setValue(res.content);
+                        monaco.editor.setModelLanguage(originalModelRef.current, language);
+                    }
+                    // Clear fixed code when loading new file
+                    setFixedCode("");
+                    if (modifiedModelRef.current) {
+                        modifiedModelRef.current.setValue("");
+                    }
+                } else {
+                    setMessage(res.message || "Failed to read file");
+                    setFileContent("");
+                }
+            } catch (error) {
+                console.error('Failed to load file content', error);
+                setMessage("Unexpected error while reading file. See console for details.");
+                setFileContent("");
+            }
+        };
+
+        loadFileContent();
+    }, [selectedFile, electronAvailable]);
+
+    // Update diff editor when fileContent or fixedCode changes
+    useEffect(() => {
+        if (!diffEditorRef.current || !originalModelRef.current || !modifiedModelRef.current) return;
+
+        if (selectedFile) {
             const language = getLanguageFromPath(selectedFile);
-            originalModelRef.current.setValue(res.content);
+
+            // Update original model
+            originalModelRef.current.setValue(fileContent || "");
             monaco.editor.setModelLanguage(originalModelRef.current, language);
-          }
-          // Clear fixed code when loading new file
-          setFixedCode("");
-          if (modifiedModelRef.current) {
-            modifiedModelRef.current.setValue("");
-          }
-        } else {
-          setMessage(res.message || "Failed to read file");
-          setFileContent("");
+
+            // Update modified model with fixed code if available
+            if (fixedCode) {
+                modifiedModelRef.current.setValue(fixedCode);
+                monaco.editor.setModelLanguage(modifiedModelRef.current, language);
+            } else {
+                modifiedModelRef.current.setValue("");
+            }
+
+            diffEditorRef.current.setModel({
+                original: originalModelRef.current,
+                modified: modifiedModelRef.current,
+            });
         }
-      } catch (error) {
-        console.error('Failed to load file content', error);
-        setMessage("Unexpected error while reading file. See console for details.");
-        setFileContent("");
-      }
-    };
-
-    loadFileContent();
-  }, [selectedFile, electronAvailable]);
-
-  // Update diff editor when fileContent or fixedCode changes
-  useEffect(() => {
-    if (!diffEditorRef.current || !originalModelRef.current || !modifiedModelRef.current) return;
-
-    if (selectedFile) {
-      const language = getLanguageFromPath(selectedFile);
-      
-      // Update original model
-      originalModelRef.current.setValue(fileContent || "");
-      monaco.editor.setModelLanguage(originalModelRef.current, language);
-      
-      // Update modified model with fixed code if available
-      if (fixedCode) {
-        modifiedModelRef.current.setValue(fixedCode);
-        monaco.editor.setModelLanguage(modifiedModelRef.current, language);
-      } else {
-        modifiedModelRef.current.setValue("");
-      }
-      
-      diffEditorRef.current.setModel({
-        original: originalModelRef.current,
-        modified: modifiedModelRef.current,
-      });
-    }
-  }, [fileContent, fixedCode, selectedFile]);
+    }, [fileContent, fixedCode, selectedFile]);
     const handlePreview = async () => {
         setMessage(null);
         setPreviewing(true);
@@ -309,7 +309,7 @@ const PatchReview: React.FC = () => {
 
                         setMessage(null);
                         setGeneratingFix(true);
-                        
+
                         try {
                             const requestSummary: AiRequestSummary = {
                                 method: currentRequest.method,
@@ -359,11 +359,11 @@ const PatchReview: React.FC = () => {
                     onChange={(e) => setHardcodedContent(e.target.value)}
                 />
             </div> */}
-            
+
             <div
-      ref={containerRef}
-       className="w-full h-[400px] rounded border border-gray-700"
-    />
+                ref={containerRef}
+                className="w-full h-[400px] rounded border border-gray-700"
+            />
             <textarea
                 className="w-full h-40 bg-[#1f1f2e] text-gray-200 p-2 rounded resize-y outline-none"
                 placeholder={`Example:\n--- a/src/foo.ts\n+++ b/src/foo.ts\n@@ -1,2 +1,2 @@\n- old\n+ new`}

@@ -8,4 +8,20 @@ export default defineConfig({
   tailwindcss(),
   ],
   base: './',
+  server: {
+    proxy: {
+      '/nvidia-api': {
+        target: 'https://integrate.api.nvidia.com',
+        changeOrigin: true,
+        rewrite: (path) => {
+          const res = path.replace(/^\/nvidia-api/, '')
+          console.log('[proxy]', path, '->', res);
+          return res; 
+        }
+
+      }
+    }
+  }
 })
+
+

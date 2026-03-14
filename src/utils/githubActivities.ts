@@ -104,7 +104,7 @@ export async function handlePush() {
     token,
     owner: 'Clasherzz',
     repo: 'testCallSensei',
-    path: 'activities2.json',
+    path: 'activities3.json',
     message: 'Update activities',
     content: encoded,
     // sha: existingFileSha (only needed if updating)

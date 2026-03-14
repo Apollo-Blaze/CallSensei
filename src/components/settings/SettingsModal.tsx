@@ -74,6 +74,34 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [isOpen, onClose]);
 
+  // Auto-fetch Gemini models when Gemini is selected and a key is available (settings or env)
+  useEffect(() => {
+    if (!isOpen) return;
+    if (aiProvider !== "gemini") return;
+    // Don't refetch automatically if we already have models, are fetching, or previously hit an error
+    if (geminiModels.length > 0 || fetchingGeminiModels || geminiModelError) return;
+
+    const envKey = (import.meta.env.VITE_GEMINI_API_KEY as string | undefined)?.trim() ?? "";
+    const effectiveKey = geminiApiKey.trim() || envKey;
+    if (!effectiveKey) return;
+
+    fetchGeminiModels(effectiveKey);
+  }, [isOpen, aiProvider, geminiApiKey, geminiModels.length, fetchingGeminiModels]);
+
+  // Auto-fetch Groq models when Groq is selected and a key is available (settings or env)
+  useEffect(() => {
+    if (!isOpen) return;
+    if (aiProvider !== "groq") return;
+    // Don't refetch automatically if we already have models, are fetching, or previously hit an error
+    if (groqModels.length > 0 || fetchingGroqModels || groqModelError) return;
+
+    const envKey = (import.meta.env.VITE_GROQ_API_KEY as string | undefined)?.trim() ?? "";
+    const effectiveKey = groqApiKey.trim() || envKey;
+    if (!effectiveKey) return;
+
+    fetchGroqModels(effectiveKey);
+  }, [isOpen, aiProvider, groqApiKey, groqModels.length, fetchingGroqModels]);
+
   if (!isOpen) return null;
 
   const fetchModelsFromBaseUrl = async (baseUrl: string, apiKey: string) => {
@@ -88,6 +116,12 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
       const res = await fetch(`${baseUrl.trim().replace(/\/$/, "")}/models`, {
         headers: { Authorization: `Bearer ${apiKey.trim()}` },
       });
+
+      if (res.status === 401|| res.status === 400) {
+        setModelFetchError("Invalid API key or unauthorized. Please check your key and base URL.");
+        return;
+      }
+
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const data: ModelsResponse = await res.json();
       const ids: string[] = [...new Set((data.data ?? []).map((m) => m.id))].sort();
@@ -114,6 +148,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
       const res = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(apiKey.trim())}`,
       );
+      if (res.status === 401 || res.status === 400) {
+        console.log("Invalid Gemini API key or unauthorized. Please check your key.");
+        throw new Error(`${res.status} ${res.statusText}`);
+      }
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const data: any = await res.json();
       const rawNames: string[] = (data.models ?? [])
@@ -125,6 +163,8 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
       if (!ids.includes(aiModel)) setAiModel(ids[0]);
     } catch (err) {
       setGeminiModelError(err instanceof Error ? err.message : "Failed to fetch Gemini models.");
+      setFetchingGeminiModels(false);
+      return;
     } finally {
       setFetchingGeminiModels(false);
     }
@@ -142,6 +182,10 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
       const res = await fetch("https://api.groq.com/openai/v1/models", {
         headers: { Authorization: `Bearer ${apiKey.trim()}` },
       });
+      if (res.status === 401 || res.status === 400) {
+        setGroqModelError("Invalid Groq API key or unauthorized. Please check your key.");
+        return;
+      }
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       const data: ModelsResponse = await res.json();
       const ids: string[] = [...new Set((data.data ?? []).map((m) => m.id))].sort();

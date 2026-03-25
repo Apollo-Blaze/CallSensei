@@ -18,8 +18,10 @@ import PatchReviewWithBoundary from '../ai/PatchReview'
 import { generateAiCodeFix, type AiRequestSummary } from '../../../services/aiService'
 import injectService from '../../../services/injectService'
 
+
 // ─── Integrated view ──────────────────────────────────────────────────────────
 export default function TerminalAndPatchView() {
+    
 
     const terminalRef = useRef<TerminalPanelHandle>(null)
 
@@ -117,7 +119,7 @@ export default function TerminalAndPatchView() {
                 extend PatchReview to accept a `prefilledError` prop.
                 See the note in pendingError / pendingFilePath above.
             */}
-            <PatchReviewWithBoundary />
+            <PatchReviewWithBoundary preselectedFile={pendingFilePath} />
 
             {/* Debug strip (remove in production) */}
             {pendingError && (

@@ -60,7 +60,10 @@ export const injectService = {
         if (!hasApi()) return { ok: false, message: 'Desktop API unavailable. Run Electron app.' }
         try {
             // @ts-ignore - exposed via preload
-            return await window.api.fs.readFile(filePath)
+            const response = await window.api.fs.readFile(filePath)
+            console.log("filepath inside readfile",filePath)
+            console.log("response inside readfile",response)
+            return response
         } catch (error) {
             console.error('injectService.readFile failed', error)
             return { ok: false, message: 'Failed to read file. See console for details.' }

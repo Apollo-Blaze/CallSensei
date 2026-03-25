@@ -197,12 +197,16 @@ ipcMain.handle('fs:writeFile', async (_event: any, args: { path: string; content
 
 ipcMain.handle('fs:readFile', async (_event: any, args: { path: string }) => {
     try {
+        console.log("inside fs:readFile",args.path)
         if (!fs.existsSync(args.path)) {
-            return { ok: false, message: 'File does not exist' }
+            console.log("inside file dont exist")
+            return { ok: false, message: `File does not exist ${args.path}` }
         }
+        console.log("path at main",args.path)
         const content = fs.readFileSync(args.path, 'utf8')
         return { ok: true, content }
     } catch (e: any) {
+        console.log("fs:readfile error",e.toString)
         return { ok: false, message: e?.message || 'Failed to read file' }
     }
 })

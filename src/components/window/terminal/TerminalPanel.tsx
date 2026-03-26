@@ -107,10 +107,16 @@ const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>(
     const [selectedLineIds, setSelectedLineIds] = useState<Set<number>>(new Set())
 
     const sessionIdRef = useRef(makeSessionId())
+    const runningRef = useRef(false)
     const outputRef    = useRef<HTMLDivElement | null>(null)
     const autoScrollRef = useRef(true)
 
     const electronAvailable = typeof window !== 'undefined' && !!(window as any).api
+
+    // Keep an always-fresh reference for unmount cleanup.
+    useEffect(() => {
+        runningRef.current = running
+    }, [running])
 
     // ── Expose handle ─────────────────────────────────────────────────────────
     useImperativeHandle(ref, () => ({
@@ -155,6 +161,11 @@ const TerminalPanel = forwardRef<TerminalPanelHandle, TerminalPanelProps>(
         return () => {
             unData()
             unExit()
+            // If the user switches activities, we unmount the panel (via `key`)
+            // so we should also stop any in-flight process for that session.
+            if (runningRef.current) {
+                void terminalService.kill(sid).catch(() => {})
+            }
             terminalService.cleanup(sid)
         }
     }, [appendRaw])

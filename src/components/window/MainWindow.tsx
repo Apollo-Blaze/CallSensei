@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Navbar from "../Navbar";
 import PatchReview from "./ai/PatchReview";
 import TerminalAndPatchReview from "./terminal/TerminalAndPatchReview";
@@ -20,6 +20,28 @@ const MainWindow: React.FC<MainWindowProps> = ({
     const [isAIPanelOpen, setIsAIPanelOpen] = useState(false);
     const [isPatchOpen, setIsPatchOpen] = useState(false);
 
+    // Cache one PatchReview+Terminal panel per activityId while the patch UI is open.
+    // We hide/show instead of remounting, so terminal + file selection state persists
+    // when switching activities.
+    const [cachedPatchActivityIds, setCachedPatchActivityIds] = useState<string[]>([]);
+
+    useEffect(() => {
+        if (!isPatchOpen) {
+            setCachedPatchActivityIds([]);
+            return;
+        }
+        if (!selectedId) return;
+
+        setCachedPatchActivityIds(prev =>
+            prev.includes(selectedId) ? prev : [...prev, selectedId]
+        );
+    }, [isPatchOpen, selectedId]);
+
+    const cachedPanels = useMemo(() => {
+        // Order matters only for render stability.
+        return cachedPatchActivityIds;
+    }, [cachedPatchActivityIds]);
+
     const handleAIClick = () => {
         setIsAIPanelOpen(!isAIPanelOpen);
     };
@@ -38,7 +60,16 @@ const MainWindow: React.FC<MainWindowProps> = ({
                         <ResponseViewer />
                         {isPatchOpen && (
                             <div className="mt-6">
-                                <TerminalAndPatchReview />
+                                <div className="space-y-0">
+                                    {cachedPanels.map(id => (
+                                        <div
+                                            key={id}
+                                            style={{ display: id === selectedId ? 'block' : 'none' }}
+                                        >
+                                            <TerminalAndPatchReview activityId={id} />
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </div>

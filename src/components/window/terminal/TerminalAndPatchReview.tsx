@@ -9,7 +9,7 @@
  * (e.g. a sidebar tab, a main panel, or a split-pane layout).
  */
 
-import React, { useRef, useState, useCallback } from 'react'
+import React, { useRef, useState, useCallback, useEffect } from 'react'
 import TerminalPanel, { type TerminalPanelHandle } from './TerminalPanel'
 
 // ── Import your existing PatchReview and the AI service ──────────────────────
@@ -20,7 +20,11 @@ import injectService from '../../../services/injectService'
 
 
 // ─── Integrated view ──────────────────────────────────────────────────────────
-export default function TerminalAndPatchView() {
+interface TerminalAndPatchViewProps {
+    activityId?: string | null
+}
+
+export default function TerminalAndPatchView({ activityId }: TerminalAndPatchViewProps) {
     
 
     const terminalRef = useRef<TerminalPanelHandle>(null)
@@ -31,6 +35,15 @@ export default function TerminalAndPatchView() {
     const [pendingFilePath, setPendingFilePath] = useState<string | undefined>(undefined)
     const [aiMessage, setAiMessage]             = useState<string | null>(null)
     const [generating, setGenerating]           = useState(false)
+
+    // Keep "terminal -> file selection -> patch review" context isolated per activity.
+    // When the user switches activities, clear local pending state.
+    useEffect(() => {
+        setPendingError('')
+        setPendingFilePath(undefined)
+        setAiMessage(null)
+        setGenerating(false)
+    }, [activityId])
 
     /**
      * Called by TerminalPanel when the user clicks "Send to AI Fix".

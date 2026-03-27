@@ -40,14 +40,15 @@ function resolveGeminiConfig(): { apiKey: string; model: string } {
 
     const storedModel = getSetting(SETTINGS_KEYS.AI_MODEL);
     const model = storedModel && storedModel.trim() ? storedModel.trim() : "gemini-2.5-flash-lite";
+    console.log("inside resolveGeminiConfigand apikey model ", model, apiKey)
     return { apiKey, model };
 }
 
 function resolveOpenAIConfig(): { apiKey: string; model: string; baseUrl: string } {
     const fromSettings = getSetting(SETTINGS_KEYS.OPENAI_API_KEY);
     const apiKey =
-       (fromSettings && fromSettings.trim()) 
-         || (import.meta.env.VITE_OPENAI_API_KEY as string | undefined)?.trim() || 
+        (fromSettings && fromSettings.trim())
+        || (import.meta.env.VITE_OPENAI_API_KEY as string | undefined)?.trim() ||
         "";
     if (!apiKey) {
         throw new Error(
@@ -57,7 +58,7 @@ function resolveOpenAIConfig(): { apiKey: string; model: string; baseUrl: string
 
     const storedModel = getSetting(SETTINGS_KEYS.OPENAI_MODEL);
     const model = storedModel && storedModel.trim() ? storedModel.trim() : "gpt-4.1-mini"; // 👈 fixed, reads from settings
-    
+
     const storedBaseUrl = getSetting(SETTINGS_KEYS.OPENAI_BASE_URL);
     const baseUrl =
         (storedBaseUrl && storedBaseUrl.trim())
@@ -68,6 +69,7 @@ function resolveOpenAIConfig(): { apiKey: string; model: string; baseUrl: string
 }
 
 function resolveGroqConfig(): { apiKey: string; model: string } {
+    console.log("inside resolveGroqConfig")
     const fromSettings = getSetting(SETTINGS_KEYS.GROQ_API_KEY);
     const apiKey =
         (fromSettings && fromSettings.trim()) ||
@@ -263,6 +265,56 @@ export interface AiCodeFixArgs {
     activityId?: string;
 }
 
+export interface AiUiUpdate {
+    method?: string;
+    url?: string;
+    headers?: Record<string, string>;
+    body?: string;
+    name?: string;
+    request?: {
+        method?: string;
+        url?: string;
+        headers?: Record<string, string>;
+        body?: string;
+        name?: string;
+    };
+    activity?: {
+        id?: string;
+        name?: string;
+        url?: string;
+        parentId?: string | null;
+        request?: {
+            method?: string;
+            url?: string;
+            headers?: Record<string, string>;
+            body?: string;
+            name?: string;
+        };
+    };
+    notes?: string;
+}
+
+interface AiUiEditArgs {
+    request?: AiRequestSummary;
+    response?: AiResponseSummary;
+    userInstruction: string;
+    terminalOutput?: string;
+    editorFilePath?: string;
+    editorFileContent?: string;
+    activityName?: string;
+    activityId?: string;
+}
+
+function extractJsonObject(text: string): string | null {
+    const trimmed = text.trim();
+    const fenced = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/i);
+    const candidate = (fenced?.[1] ?? trimmed).trim();
+    const start = candidate.indexOf("{");
+    const end = candidate.lastIndexOf("}");
+    if (start === -1 || end === -1 || end <= start) return null;
+    return candidate.slice(start, end + 1);
+}
+
 export async function generateAiCodeFix({
     request,
     response,
@@ -330,12 +382,12 @@ Return ONLY the complete fixed code content, without markdown formatting or expl
 
         const result = await chatModel.invoke(messages);
         console.log("[AI] Code fix generated:", result.content);
-        
+
         // Clean up the response - remove markdown code blocks if present
         let fixedCode = result.content as string;
         // Remove markdown code blocks if present
         fixedCode = fixedCode.replace(/^```[\w]*\n/gm, '').replace(/^```$/gm, '').trim();
-        
+
         return fixedCode;
     } catch (error) {
         console.error("Error generating AI code fix:", error);
@@ -451,4 +503,112 @@ Explain the intent of the request, what the response indicates, and recommend an
         console.error("Error generating AI explanation:", error);
         return error instanceof Error ? error.message : "Unable to generate AI explanation.";
     }
+}
+
+export async function generateAiUiEdit({
+    request,
+    response,
+    userInstruction,
+    terminalOutput,
+    editorFilePath,
+    editorFileContent,
+    activityName,
+    activityId,
+}: AiUiEditArgs): Promise<AiUiUpdate> {
+    const chatModel = getModel();
+
+    const systemPrompt = `You are an API request editor assistant.
+You MUST return valid JSON only (no markdown, no prose).
+
+Return either of these shapes:
+{
+  "method": "GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS" or omit,
+  "url": "full url string" or omit,
+  "headers": { "Header-Name": "value", ... } or omit,
+  "body": "raw request body string" or omit,
+  "notes": "very short reason for the change"
+}
+
+OR (preferred, GitHub-style activity shape):
+{
+  "activity": {
+    "name": "optional activity display name",
+    "url": "optional activity url",
+    "request": {
+      "method": "GET|POST|PUT|DELETE|PATCH|HEAD|OPTIONS" or omit,
+      "url": "full url string" or omit,
+      "headers": { "Header-Name": "value", ... } or omit,
+      "body": "raw request body string" or omit
+    }
+  },
+  "notes": "very short reason for the change"
+}
+
+Rules:
+- Use available context from request/response, terminal output, and editor file to apply the user's instruction.
+- If instruction implies no change for a field, omit it.
+- Preserve unknown headers unless instruction clearly replaces them.
+- Keep output parseable JSON.`;
+
+    const activitySection =
+        (activityName || activityId)
+            ? `Activity:
+- Name: ${activityName || "Unknown"}
+- Id: ${activityId || "Unknown"}`
+            : "";
+
+    const requestSection = request
+        ? `Request:
+- Method: ${request.method}
+- URL: ${request.url}
+- Headers: ${JSON.stringify(request.headers, null, 2)}
+- Body: ${truncateBody(request.body, 4000)}`
+        : "Request: Not available.";
+
+    const responseSection = response
+        ? `Response:
+- Status: ${response.status} ${response.statusText}
+- Headers: ${JSON.stringify(response.headers, null, 2)}
+- Body: ${truncateBody(response.body, 3000)}`
+        : "Response: Not available.";
+
+    const terminalSection = terminalOutput
+        ? `Terminal Output (recent):
+${truncateBody(terminalOutput, 5000)}`
+        : "Terminal Output: Not available.";
+
+    const editorSection =
+        editorFilePath || editorFileContent
+            ? `Editor File:
+- Path: ${editorFilePath || "Unknown"}
+- Content:
+\`\`\`
+${truncateBody(editorFileContent || "", 8000)}
+\`\`\``
+            : "Editor File: Not available.";
+
+    const userPrompt = `${activitySection ? activitySection + "\n\n" : ""}${requestSection}
+
+${responseSection}
+
+${terminalSection}
+
+${editorSection}
+
+User instruction:
+${userInstruction}
+
+Return JSON only.`;
+
+    const result = await chatModel.invoke([
+        new SystemMessage(systemPrompt),
+        new HumanMessage(userPrompt),
+    ]);
+
+    const parsedRaw = extractJsonObject(String(result.content));
+    if (!parsedRaw) {
+        throw new Error("AI did not return valid JSON for UI update.");
+    }
+    const parsed = JSON.parse(parsedRaw) as AiUiUpdate;
+    return parsed;
 }

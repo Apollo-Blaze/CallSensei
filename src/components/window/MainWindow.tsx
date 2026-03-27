@@ -1,9 +1,10 @@
-import React, { useState, useRef, useCallback } from "react";
+import React, { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import Navbar from "./Navbar";
-import PatchReview from "../ai/PatchReview";
-import AIPanel from "../ai/AIPanel";
+import PatchReview from "./ai/PatchReview";
+import AIPanel from "./ai/AIPanel";
 import RequestForm from "../request/RequestForm";
 import ResponseViewer from "../response/ResponseViewer";
+import TerminalAndPatchReview from "./terminal/TerminalAndPatchReview";
 
 interface MainWindowProps {
   selectedId: string | null;
@@ -15,13 +16,35 @@ const MIN_PANEL_PCT = 28; // neither panel shrinks below 28% of container width
 
 const MainWindow: React.FC<MainWindowProps> = ({ selectedId, setAIExplanation, aiExplanation }) => {
   const [isAIPanelOpen, setIsAIPanelOpen] = useState(false);
-  const [isPatchOpen,   setIsPatchOpen]   = useState(false);
-  const [isFloating,    setIsFloating]    = useState(false);
+  const [isPatchOpen, setIsPatchOpen] = useState(false);
+  const [isFloating, setIsFloating] = useState(false);
+
+  // Cache one PatchReview+Terminal panel per activityId while the patch UI is open.
+  // We hide/show instead of remounting, so terminal + file selection state persists
+  // when switching activities.
+  const [cachedPatchActivityIds, setCachedPatchActivityIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!isPatchOpen) {
+      setCachedPatchActivityIds([]);
+      return;
+    }
+    if (!selectedId) return;
+
+    setCachedPatchActivityIds(prev =>
+      prev.includes(selectedId) ? prev : [...prev, selectedId]
+    );
+  }, [isPatchOpen, selectedId]);
+
+  const cachedPanels = useMemo(() => {
+    // Order matters only for render stability.
+    return cachedPatchActivityIds;
+  }, [cachedPatchActivityIds]);
 
   // Split ratio: left panel width as percentage of the split container
   const [splitPct, setSplitPct] = useState(50);
   const containerRef = useRef<HTMLDivElement>(null);
-  const dragging     = useRef(false);
+  const dragging = useRef(false);
 
   const onDividerMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -104,7 +127,7 @@ const MainWindow: React.FC<MainWindowProps> = ({ selectedId, setAIExplanation, a
               />
               {/* Drag handle dots */}
               <div className="absolute flex flex-col gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none">
-                {[0,1,2].map(i => (
+                {[0, 1, 2].map(i => (
                   <div key={i} className="w-1 h-1 rounded-full" style={{ background: "rgba(148,163,184,0.5)" }} />
                 ))}
               </div>
@@ -136,12 +159,16 @@ const MainWindow: React.FC<MainWindowProps> = ({ selectedId, setAIExplanation, a
             </div>
           </div>
 
-          {/* ── Patch review (optional, below both panels) ── */}
-          {isPatchOpen && (
-            <section className="panel-soft border border-slate-700/80 rounded-xl px-4 py-4 flex-shrink-0 min-w-0">
-              <PatchReview />
-            </section>
-          )}
+          <div className="space-y-0">
+            {cachedPanels.map(id => (
+              <div
+                key={id}
+                style={{ display: id === selectedId ? 'block' : 'none' }}
+              >
+                <TerminalAndPatchReview activityId={id} />
+              </div>
+            ))}
+          </div>
         </main>
 
         {/* ── AI Panel ── */}

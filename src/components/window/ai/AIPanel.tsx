@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { FiX } from "react-icons/fi";
 import { FaRobot } from "react-icons/fa";
 import { createPortal } from "react-dom";
-import type { RootState } from "../../state/store";
-import type { RequestModel, ResponseModel } from "../../models";
-import type { ActivityModel } from "../../models/ActivityModel";
-import { generateAiExplanation } from "../../services/aiService";
+import type { RootState } from "../../../state/store";
+import type { RequestModel, ResponseModel } from "../../../models";
+import type { ActivityModel } from "../../../models/ActivityModel";
+import { generateAiExplanation, generateAiUiEdit } from "../../../services/aiService";
+import { updateActivity } from "../../../state/activitiesSlice";
+import { buildActivityUpdateFromAiJson } from "../../../utils/activityUpdateTool";
 
 interface AIPanelProps {
   isOpen: boolean;
@@ -40,6 +42,7 @@ const AIPanel: React.FC<AIPanelProps> = ({
   isFloating,
   onFloatingChange,
 }) => {
+  const dispatch = useDispatch();
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isBusy, setIsBusy] = useState(false);
@@ -219,6 +222,61 @@ const AIPanel: React.FC<AIPanelProps> = ({
     } finally { setIsBusy(false); }
   };
 
+  const handleApplyToRequest = async () => {
+    const instruction = input.trim();
+    if (!instruction || !currentActivity || !currentRequest) return;
+
+    const contextKey = `callsensei.aiContext.${currentActivity.id}`;
+    let terminalOutput = "";
+    let editorFilePath = "";
+    let editorFileContent = "";
+    try {
+      const raw = localStorage.getItem(contextKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { terminalOutput?: string; editorFilePath?: string; editorFileContent?: string };
+        terminalOutput = parsed.terminalOutput || "";
+        editorFilePath = parsed.editorFilePath || "";
+        editorFileContent = parsed.editorFileContent || "";
+      }
+    } catch {
+      // Optional context only.
+    }
+
+    setIsBusy(true);
+    pushMessage("user", `Apply to request: ${instruction}`);
+    onSetExplanation("Applying AI changes to request UI...");
+    try {
+      const aiUpdate = await generateAiUiEdit({
+        request: buildRequestSummary(),
+        response: buildResponseSummary() || undefined,
+        userInstruction: instruction,
+        terminalOutput,
+        editorFilePath,
+        editorFileContent,
+        activityName,
+        activityId,
+      });
+
+      const applied = buildActivityUpdateFromAiJson(currentActivity, aiUpdate);
+
+      dispatch(updateActivity({
+        id: currentActivity.id,
+        data: applied.data,
+      }));
+
+      const notes = applied.notes;
+      onSetExplanation(notes);
+      pushMessage("ai", `Updated request UI.\nMethod: ${applied.nextRequest.method}\nURL: ${applied.nextRequest.url}\n${notes}`);
+      setInput("");
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Failed to apply AI UI changes.";
+      onSetExplanation(msg);
+      pushMessage("ai", msg);
+    } finally {
+      setIsBusy(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   const panelContent = (
@@ -313,6 +371,15 @@ const AIPanel: React.FC<AIPanelProps> = ({
         >
           Send
         </button>
+        <button
+          type="button"
+          onClick={handleApplyToRequest}
+          disabled={!input.trim() || isBusy || !currentRequest}
+          className="bg-violet-500 hover:bg-violet-400 text-slate-950 text-xs font-semibold px-3 py-2 rounded disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-violet-500/60"
+          title="Use AI to update method/url/headers/body in the request UI"
+        >
+          Apply
+        </button>
       </form>
 
       {/* ── Scrollable body ── */}
@@ -380,8 +447,8 @@ const AIPanel: React.FC<AIPanelProps> = ({
                   <div
                     key={m.id}
                     className={`text-xs px-2.5 py-1.5 rounded-lg max-w-[90%] whitespace-pre-wrap leading-relaxed ${m.from === "user"
-                        ? "bg-cyan-500/90 text-slate-950 self-end shadow-md shadow-cyan-500/40"
-                        : "bg-slate-800/90 text-slate-100 self-start border border-slate-700/80"
+                      ? "bg-cyan-500/90 text-slate-950 self-end shadow-md shadow-cyan-500/40"
+                      : "bg-slate-800/90 text-slate-100 self-start border border-slate-700/80"
                       }`}
                   >
                     {m.text}

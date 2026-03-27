@@ -1,8 +1,3 @@
-Users should have control on whether AI response is required or not for each API req response
-Ai code injector has to be revamped
-Request timeout and Ai request cancellation features should be implemented
 Multiple send request for API doesnt work(maybe because of AI explanation taking time to respond)
-Chnaged in networkutils submit button with api req to gemini
-
 
 Test: https://httpbin.org/post

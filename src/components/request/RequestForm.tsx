@@ -6,6 +6,7 @@ import { networkUtils } from "../../utils/network";
 import type { BodyType } from "../../consts";
 import "./RequestForm.css";
 import type { RequestMethod } from "../../models";
+import { getSetting, setSetting, SETTINGS_KEYS } from "../../utils/settings";
 
 // ── Method colour palette ─────────────────────────────────────────────────────
 const METHOD_CONFIG: Record<string, { color: string; glow: string; bg: string; border: string; glassGlow: string }> = {
@@ -327,7 +328,7 @@ const BodyTab: React.FC<{
       {bodyType !== "none" && (
         <textarea value={body} onChange={e => onBodyChange(e.target.value)} rows={12} spellCheck={false}
           placeholder={bodyType === "json" ? '{\n  "key": "value"\n}\n\nUse {{varName}} for variables' : "Plain text. Use {{varName}} for variables"}
-          className="h-full w-full rounded-xl text-xs font-mono text-slate-200 placeholder-slate-600 focus:outline-none resize-none transition-all duration-200 custom-scrollbar"
+          className="w-full rounded-xl text-xs font-mono text-slate-200 placeholder-slate-600 focus:outline-none resize-none transition-all duration-200 custom-scrollbar"
           style={{
             background: "rgba(8,14,28,0.7)", backdropFilter: "blur(12px)",
             border: "1px solid rgba(148,163,184,0.1)",
@@ -429,6 +430,24 @@ const RequestForm: React.FC<{ selectedId: string | null; setAIExplanation: (s: s
   const [isSending, setIsSending] = useStateR(false);
   const [prettyBody, setPrettyBody] = useStateR(false);
   const prevRequestRef = React.useRef<string>("");
+  // Abort controller for in-flight HTTP request — lets us cancel mid-flight
+  const abortRef = React.useRef<AbortController | null>(null);
+
+  // AI auto-analyze toggle — read from settings, persisted immediately on change.
+  // Also listens to the storage event so changes made in SettingsModal are
+  // reflected here without requiring a page reload.
+  const [aiAutoAnalyze, setAiAutoAnalyze] = React.useState(
+    () => getSetting(SETTINGS_KEYS.AI_AUTO_ANALYZE) !== "false"
+  );
+  React.useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === SETTINGS_KEYS.AI_AUTO_ANALYZE) {
+        setAiAutoAnalyze(e.newValue !== "false");
+      }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
   const cfg = getCfg(method);
   const bodyIsJson = bodyType === "json" && isValidJson(body);
 
@@ -467,10 +486,36 @@ const RequestForm: React.FC<{ selectedId: string | null; setAIExplanation: (s: s
     if (activity?.id) {
       dispatch(updateActivity({ id: activity.id, data: { url, request: { ...activity.request, method, url, headers, body: bodyType === "none" ? "" : body } } }));
     }
+    // Create a fresh AbortController for this request
+    const controller = new AbortController();
+    abortRef.current = controller;
     setIsSending(true);
     try {
-      await networkUtils.sendHttpRequest({ method, url, headers, body: substituted }, activity?.id, activity?.name, dispatch as any, setAIExplanation);
-    } finally { setIsSending(false); }
+      await networkUtils.sendHttpRequest(
+        { method, url, headers, body: substituted },
+        activity?.id,
+        activity?.name,
+        dispatch as any,
+        setAIExplanation,
+        controller
+      );
+    } finally {
+      abortRef.current = null;
+      setIsSending(false);
+    }
+  };
+
+  const handleCancel = () => {
+    if (abortRef.current) {
+      abortRef.current.abort();
+      abortRef.current = null;
+    }
+  };
+
+  const handleAiToggle = () => {
+    const next = !aiAutoAnalyze;
+    setAiAutoAnalyze(next);
+    setSetting(SETTINGS_KEYS.AI_AUTO_ANALYZE, next ? "true" : "false");
   };
 
   const headerCount = Object.keys(headers).filter(k => k.trim()).length;
@@ -484,26 +529,69 @@ const RequestForm: React.FC<{ selectedId: string | null; setAIExplanation: (s: s
       <div className="flex items-center gap-2">
         <MethodSelect method={method} onChange={m => setMethod(m as RequestMethod)} />
         <UrlInput url={url} onChange={setUrl} method={method} />
-        {/* Send button inline with URL */}
-        <button type="submit" disabled={isSending}
-          className="relative flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide transition-all duration-200 focus:outline-none overflow-hidden group"
+        {/* Send / Cancel button */}
+        {isSending ? (
+          <button type="button" onClick={handleCancel}
+            className="relative flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide transition-all duration-200 focus:outline-none overflow-hidden"
+            style={{
+              color: "#f87171",
+              background: "rgba(248,113,113,0.08)",
+              backdropFilter: "blur(16px) saturate(180%)", WebkitBackdropFilter: "blur(16px) saturate(180%)",
+              border: "1px solid rgba(248,113,113,0.25)",
+              boxShadow: "0 0 16px rgba(248,113,113,0.15), inset 0 1px 0 rgba(255,255,255,0.06)",
+              letterSpacing: "0.08em", minWidth: 88,
+            }}>
+            <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 16 16" fill="none">
+              <rect x="4" y="4" width="8" height="8" rx="1.5" fill="currentColor" />
+            </svg>
+            <span>Cancel</span>
+          </button>
+        ) : (
+          <button type="submit"
+            className="relative flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide transition-all duration-200 focus:outline-none overflow-hidden group"
+            style={{
+              color: cfg.color,
+              background: `linear-gradient(135deg, ${cfg.bg}, rgba(15,23,42,0.65))`,
+              backdropFilter: "blur(16px) saturate(180%)", WebkitBackdropFilter: "blur(16px) saturate(180%)",
+              border: `1px solid ${cfg.border}`,
+              boxShadow: `${cfg.glassGlow}, 0 4px 16px rgba(0,0,0,0.3)`,
+              letterSpacing: "0.08em", minWidth: 88,
+            }}
+            onMouseEnter={e => { e.currentTarget.style.boxShadow = `0 0 28px ${cfg.color}40, inset 0 1px 0 rgba(255,255,255,0.1), 0 6px 20px rgba(0,0,0,0.4)`; }}
+            onMouseLeave={e => { e.currentTarget.style.boxShadow = `${cfg.glassGlow}, 0 4px 16px rgba(0,0,0,0.3)`; }}>
+            <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+              style={{ background: `linear-gradient(105deg, transparent 35%, ${cfg.color}12 50%, transparent 65%)` }} />
+            <svg className="w-3.5 h-3.5 transition-transform duration-150 group-hover:translate-x-0.5" viewBox="0 0 16 16" fill="none">
+              <path d="M2 8h10M9 5l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span>Send</span>
+          </button>
+        )}
+
+        {/* AI toggle — show a brain icon, glows cyan when ON */}
+        <button type="button" onClick={handleAiToggle} title={aiAutoAnalyze ? "AI analysis ON — click to disable" : "AI analysis OFF — click to enable"}
+          className="flex-shrink-0 flex items-center justify-center w-10 h-10 rounded-xl transition-all duration-200 focus:outline-none"
           style={{
-            color: cfg.color,
-            background: `linear-gradient(135deg, ${cfg.bg}, rgba(15,23,42,0.65))`,
-            backdropFilter: "blur(16px) saturate(180%)", WebkitBackdropFilter: "blur(16px) saturate(180%)",
-            border: `1px solid ${cfg.border}`,
-            boxShadow: isSending ? "inset 0 1px 0 rgba(255,255,255,0.05)" : `${cfg.glassGlow}, 0 4px 16px rgba(0,0,0,0.3)`,
-            letterSpacing: "0.08em", minWidth: 80,
-            opacity: isSending ? 0.6 : 1,
-          }}
-          onMouseEnter={e => { if (!isSending) e.currentTarget.style.boxShadow = `0 0 28px ${cfg.color}40, inset 0 1px 0 rgba(255,255,255,0.1), 0 6px 20px rgba(0,0,0,0.4)`; }}
-          onMouseLeave={e => { e.currentTarget.style.boxShadow = `${cfg.glassGlow}, 0 4px 16px rgba(0,0,0,0.3)`; }}>
-          <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-            style={{ background: `linear-gradient(105deg, transparent 35%, ${cfg.color}12 50%, transparent 65%)` }} />
-          {isSending
-            ? <svg className="w-3.5 h-3.5 animate-spin" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>
-            : <svg className="w-3.5 h-3.5 transition-transform duration-150 group-hover:translate-x-0.5" viewBox="0 0 16 16" fill="none"><path d="M2 8h10M9 5l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-          <span>{isSending ? "Sending…" : "Send"}</span>
+            color: aiAutoAnalyze ? "rgba(34,211,238,0.9)" : "rgba(148,163,184,0.35)",
+            background: aiAutoAnalyze ? "rgba(34,211,238,0.08)" : "rgba(15,23,42,0.3)",
+            border: `1px solid ${aiAutoAnalyze ? "rgba(34,211,238,0.25)" : "rgba(148,163,184,0.1)"}`,
+            boxShadow: aiAutoAnalyze ? "0 0 12px rgba(34,211,238,0.2), inset 0 1px 0 rgba(255,255,255,0.07)" : "none",
+          }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <rect x="7" y="7" width="10" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
+            <line x1="10" y1="7" x2="10" y2="17" stroke="currentColor" strokeWidth="1"/>
+            <line x1="14" y1="7" x2="14" y2="17" stroke="currentColor" strokeWidth="1"/>
+            <line x1="7" y1="10" x2="17" y2="10" stroke="currentColor" strokeWidth="1"/>
+            <line x1="7" y1="14" x2="17" y2="14" stroke="currentColor" strokeWidth="1"/>
+            <line x1="10" y1="4" x2="10" y2="7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            <line x1="14" y1="4" x2="14" y2="7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            <line x1="10" y1="17" x2="10" y2="20" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            <line x1="14" y1="17" x2="14" y2="20" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            <line x1="4" y1="10" x2="7" y2="10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            <line x1="4" y1="14" x2="7" y2="14" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            <line x1="17" y1="10" x2="20" y2="10" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            <line x1="17" y1="14" x2="20" y2="14" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+          </svg>
         </button>
       </div>
 

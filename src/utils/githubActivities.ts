@@ -142,7 +142,7 @@ export async function pullActivitiesFromGitHub({
   token,
   owner,
   repo,
-  path = "activities.json",
+  path = "activities3.json",
 }: {
   token: string | { access_token: string } | null;
   owner: string;

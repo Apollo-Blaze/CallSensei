@@ -1,5 +1,6 @@
 // src/store/githubSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import { loadGitHubToken } from '../utils/githubAuthPersistence';
 
 // const clientId = 'YOUR_CLIENT_ID';
 // const clientSecret = 'YOUR_CLIENT_SECRET';
@@ -63,7 +64,7 @@ export const exchangeCodeForToken = createAsyncThunk(
 const githubSlice = createSlice({
   name: 'github',
   initialState: {
-    token: null,
+    token: loadGitHubToken(),
     modelContent: '',
     status: 'idle',
   },

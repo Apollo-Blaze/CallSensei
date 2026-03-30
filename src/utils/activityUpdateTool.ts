@@ -109,9 +109,8 @@ export function buildActivityUpdateFromAiJson(
       ...nextRequest,
       name: typeof nameCandidate === "string" ? nameCandidate : (nextRequest.name ?? currentActivity.name),
     },
-  };
-
-  if (nested.parentId !== undefined) {
+  }
+    if (nested.parentId !== undefined) {
     data.parentId = nested.parentId ?? undefined;
   }
 

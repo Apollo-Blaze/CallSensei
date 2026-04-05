@@ -137,28 +137,77 @@ const DeleteBtn: React.FC<{ onClick: () => void }> = ({ onClick }) => (
 );
 
 // ── URL Params tab ────────────────────────────────────────────────────────────
-const UrlParamsTab: React.FC<{ url: string; onUrlChange: (u: string) => void }> = ({ url, onUrlChange }) => {
-  // Parse params from URL
-  const parseParams = (u: string): [string, string][] => {
-    try {
-      const idx = u.indexOf("?");
-      if (idx === -1) return [["", ""]];
-      const search = u.slice(idx + 1);
-      const pairs = search.split("&").map(p => {
-        const [k, ...v] = p.split("=");
-        return [decodeURIComponent(k || ""), decodeURIComponent(v.join("=") || "")] as [string, string];
-      }).filter(([k]) => k);
-      return pairs.length ? [...pairs, ["", ""]] : [["", ""]];
-    } catch { return [["", ""]]; }
+// const UrlParamsTab: React.FC<{ url: string; onUrlChange: (u: string) => void }> = ({ url, onUrlChange }) => {
+//   // Parse params from URL
+//   const parseParams = (u: string): [string, string][] => {
+//     try {
+//       const idx = u.indexOf("?");
+//       if (idx === -1) return [["", ""]];
+//       const search = u.slice(idx + 1);
+//       const pairs = search.split("&").map(p => {
+//         const [k, ...v] = p.split("=");
+//         return [decodeURIComponent(k || ""), decodeURIComponent(v.join("=") || "")] as [string, string];
+//       }).filter(([k]) => k);
+//       return pairs.length ? [...pairs, ["", ""]] : [["", ""]];
+//     } catch { return [["", ""]]; }
+//   };
+
+//   const [rows, setRows] = useStateR<[string, string][]>(() => parseParams(url));
+
+//   const syncUrl = (newRows: [string, string][]) => {
+//     const filtered = newRows.filter(([k]) => k.trim());
+//     const base = url.split("?")[0];
+//     const qs = filtered.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&");
+//     onUrlChange(qs ? `${base}?${qs}` : base);
+//   };
+
+//   const updateRow = (i: number, key: string, val: string) => {
+//     const n = rows.map((r, idx) => idx === i ? [key, val] as [string, string] : r);
+//     // auto-add blank row if last row got filled
+//     const last = n[n.length - 1];
+//     if (last[0].trim() || last[1].trim()) n.push(["", ""]);
+//     setRows(n);
+//     syncUrl(n);
+//   };
+
+//   const deleteRow = (i: number) => {
+//     const n = rows.filter((_, idx) => idx !== i);
+//     if (!n.length) n.push(["", ""]);
+//     setRows(n);
+//     syncUrl(n);
+//   };
+
+//   return (
+//     <div className="flex flex-col h-full gap-2 overflow-y-auto custom-scrollbar">
+//       {rows.map(([k, v], i) => (
+//         <div key={i} className="flex items-center gap-3">
+//           <GlassInput value={k} onChange={e => updateRow(i, e.target.value, v)} placeholder="Add URL Parameter" className="flex-1" />
+//           <span className="text-slate-400 text-sm font-medium flex-shrink-0">=</span>
+//           <GlassInput value={v} onChange={e => updateRow(i, k, e.target.value)} placeholder="Add Value" className="flex-1" />
+//           <DeleteBtn onClick={() => deleteRow(i)} />
+//         </div>
+//       ))}
+//     </div>
+//   );
+// };
+
+// ── URL Params tab ────────────────────────────────────────────────────────────
+const UrlParamsTab: React.FC<{ params: Record<string, string>; onParamsChange: (p: Record<string, string>) => void }> = ({ params, onParamsChange }) => {
+  const buildInitialRows = () => {
+    const entries = Object.entries(params).filter(([k]) => k.trim());
+    return [...entries, ["", ""]] as [string, string][];
   };
 
-  const [rows, setRows] = useStateR<[string, string][]>(() => parseParams(url));
+  const [rows, setRows] = useStateR<[string, string][]>(buildInitialRows);
 
-  const syncUrl = (newRows: [string, string][]) => {
+  React.useEffect(() => {
+    setRows(buildInitialRows());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(params)]);
+
+  const syncParams = (newRows: [string, string][]) => {
     const filtered = newRows.filter(([k]) => k.trim());
-    const base = url.split("?")[0];
-    const qs = filtered.map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`).join("&");
-    onUrlChange(qs ? `${base}?${qs}` : base);
+    onParamsChange(Object.fromEntries(filtered.map(([k, v]) => [k.trim(), v])));
   };
 
   const updateRow = (i: number, key: string, val: string) => {
@@ -167,14 +216,14 @@ const UrlParamsTab: React.FC<{ url: string; onUrlChange: (u: string) => void }> 
     const last = n[n.length - 1];
     if (last[0].trim() || last[1].trim()) n.push(["", ""]);
     setRows(n);
-    syncUrl(n);
+    syncParams(n);
   };
 
   const deleteRow = (i: number) => {
     const n = rows.filter((_, idx) => idx !== i);
     if (!n.length) n.push(["", ""]);
     setRows(n);
-    syncUrl(n);
+    syncParams(n);
   };
 
   return (
@@ -190,6 +239,7 @@ const UrlParamsTab: React.FC<{ url: string; onUrlChange: (u: string) => void }> 
     </div>
   );
 };
+
 
 // ── Headers tab ───────────────────────────────────────────────────────────────
 const COMMON_HEADERS = ["Content-Type", "Authorization", "Accept", "X-API-Key", "Cache-Control", "User-Agent"];
@@ -422,8 +472,23 @@ const TabBar: React.FC<{
 // ── Main RequestForm ──────────────────────────────────────────────────────────
 const RequestForm: React.FC<{ selectedId: string | null; setAIExplanation: (s: string) => void }> = ({ selectedId: _selectedId, setAIExplanation }) => {
   const dispatch = useDispatch();
-  const { method, setMethod, url, setUrl, headers, setHeaders, body, setBody, activity } = useRequestFormState();
+  const { method, setMethod, url, setUrl, headers, setHeaders, body, setBody, queryParams, setQueryParams, activity } = useRequestFormState();
 
+  const buildUrlWithParams = React.useCallback(
+    (baseUrl: string, params: Record<string, string>) => {
+      const base = (baseUrl || "").split("?")[0];
+      const entries = Object.entries(params).filter(([k]) => k.trim());
+      if (!entries.length) return base;
+      const qs = entries.map(([k, v]) => `${encodeURIComponent(k.trim())}=${encodeURIComponent(v)}`).join("&");
+      return `${base}?${qs}`;
+    },
+    []
+  );
+
+  const handleParamsChange = (next: Record<string, string>) => {
+    setQueryParams(next);
+    setUrl(prev => buildUrlWithParams(prev, next));
+  };
   const [tab,       setTab]       = useStateR<Tab>("params");
   const [bodyType,  setBodyType]  = useStateR<BodyType>("json");
   const [variables, setVariables] = useStateR<Record<string, string>>({});
@@ -468,14 +533,14 @@ const RequestForm: React.FC<{ selectedId: string | null; setAIExplanation: (s: s
   React.useEffect(() => {
     if (!activity?.id) return;
     const t = setTimeout(() => {
-      const nextReq = { ...activity.request, method, url, headers, body: bodyType === "none" ? "" : body };
+      const nextReq = { ...activity.request, method, url, headers, body: bodyType === "none" ? "" : body, queryParams };
       const s = JSON.stringify(nextReq);
       if (s === prevRequestRef.current) return;
       prevRequestRef.current = s;
       dispatch(updateActivity({ id: activity.id, data: { url, request: nextReq } }));
     }, 300);
     return () => clearTimeout(t);
-  }, [method, url, headers, body, bodyType, activity, dispatch]);
+  }, [method, url, headers, body, bodyType, queryParams, activity, dispatch]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -483,6 +548,7 @@ const RequestForm: React.FC<{ selectedId: string | null; setAIExplanation: (s: s
     if (bodyType === "json" && substituted.trim()) {
       try { JSON.parse(substituted); } catch { alert("Body must be valid JSON"); return; }
     }
+    const finalUrl = buildUrlWithParams(url, queryParams);
     if (activity?.id) {
       dispatch(updateActivity({ id: activity.id, data: { url, request: { ...activity.request, method, url, headers, body: bodyType === "none" ? "" : body } } }));
     }
@@ -490,17 +556,22 @@ const RequestForm: React.FC<{ selectedId: string | null; setAIExplanation: (s: s
     const controller = new AbortController();
     abortRef.current = controller;
     setIsSending(true);
+    // try {
+    //   await networkUtils.sendHttpRequest(
+    //     { method, url, headers, body: substituted },
+    //     activity?.id,
+    //     activity?.name,
+    //     dispatch as any,
+    //     setAIExplanation,
+    //     controller
+    //   );
+    // } finally {
+    //   abortRef.current = null;
+    //   setIsSending(false);
+    // }
     try {
-      await networkUtils.sendHttpRequest(
-        { method, url, headers, body: substituted },
-        activity?.id,
-        activity?.name,
-        dispatch as any,
-        setAIExplanation,
-        controller
-      );
+      await networkUtils.sendHttpRequest({ method, url: finalUrl, headers, body: substituted }, activity?.id, activity?.name, dispatch as any, setAIExplanation);
     } finally {
-      abortRef.current = null;
       setIsSending(false);
     }
   };
@@ -519,7 +590,7 @@ const RequestForm: React.FC<{ selectedId: string | null; setAIExplanation: (s: s
   };
 
   const headerCount = Object.keys(headers).filter(k => k.trim()).length;
-  const paramCount  = (() => { try { const i = url.indexOf("?"); return i === -1 ? 0 : url.slice(i+1).split("&").filter(p => p.trim()).length; } catch { return 0; } })();
+  const paramCount  = Object.keys(queryParams).filter(k => k.trim()).length;
   const bodySet     = bodyType !== "none" && body.trim().length > 0;
 
   return (
@@ -530,24 +601,36 @@ const RequestForm: React.FC<{ selectedId: string | null; setAIExplanation: (s: s
         <MethodSelect method={method} onChange={m => setMethod(m as RequestMethod)} />
         <UrlInput url={url} onChange={setUrl} method={method} />
         {/* Send / Cancel button */}
-        {isSending ? (
-          <button type="button" onClick={handleCancel}
-            className="relative flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide transition-all duration-200 focus:outline-none overflow-hidden"
+       {/* Send / Cancel button inline with URL */}
+       {isSending ? (
+          <button
+            type="button"
+            onClick={() => {
+              networkUtils.cancelCurrentRequest();
+              setIsSending(false);
+            }}
+            className="relative flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide transition-all duration-200 focus:outline-none overflow-hidden group"
             style={{
-              color: "#f87171",
-              background: "rgba(248,113,113,0.08)",
-              backdropFilter: "blur(16px) saturate(180%)", WebkitBackdropFilter: "blur(16px) saturate(180%)",
-              border: "1px solid rgba(248,113,113,0.25)",
-              boxShadow: "0 0 16px rgba(248,113,113,0.15), inset 0 1px 0 rgba(255,255,255,0.06)",
-              letterSpacing: "0.08em", minWidth: 88,
-            }}>
-            <svg className="w-3.5 h-3.5 flex-shrink-0" viewBox="0 0 16 16" fill="none">
-              <rect x="4" y="4" width="8" height="8" rx="1.5" fill="currentColor" />
+              color: "#fecaca",
+              background: "linear-gradient(135deg, rgba(248,113,113,0.18), rgba(15,23,42,0.8))",
+              backdropFilter: "blur(16px) saturate(180%)",
+              WebkitBackdropFilter: "blur(16px) saturate(180%)",
+              border: "1px solid rgba(248,113,113,0.55)",
+              boxShadow: "0 0 24px rgba(248,113,113,0.35), 0 4px 16px rgba(0,0,0,0.4)",
+              letterSpacing: "0.08em",
+              minWidth: 80,
+            }}
+          >
+            <span className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+              style={{ background: "linear-gradient(105deg, transparent 35%, rgba(248,113,113,0.25) 50%, transparent 65%)" }} />
+            <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="none">
+              <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             <span>Cancel</span>
           </button>
-        ) : (
+        )  : (
           <button type="submit"
+          disabled={isSending}
             className="relative flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide transition-all duration-200 focus:outline-none overflow-hidden group"
             style={{
               color: cfg.color,
@@ -610,7 +693,7 @@ const RequestForm: React.FC<{ selectedId: string | null; setAIExplanation: (s: s
 
         {/* Tab content */}
         <div className="px-4 py-4 flex-1 flex flex-col min-h-0">
-          {tab === "params"  && <UrlParamsTab url={url} onUrlChange={setUrl} />}
+        {tab === "params"  && <UrlParamsTab params={queryParams} onParamsChange={handleParamsChange} />}
           {tab === "headers" && <HeadersTab headers={headers} onChange={setHeaders} />}
           {tab === "body"    && (
             <BodyTab

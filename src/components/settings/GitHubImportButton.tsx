@@ -1,9 +1,11 @@
 // src/components/settings/GitHubImportSection.tsx
 import React, { useState } from "react";
 import { useAppDispatch, useAppSelector } from "../../hooks/useRequestFormState";
-import { pullActivitiesFromGitHub, filterSelected, type PulledActivity, type PulledFolder } from "../../utils/githubActivities";
+import { pullActivitiesFromGitHub, filterSelected, type PulledActivity, type PulledFolder, pushActivitiesToGitHub, encodeForGitHub } from "../../utils/githubActivities";
+import { buildActivitiesJson } from "../../utils/BuildActivitiesJson";
 // ⬇ replace with your actual action names
 import { addActivity } from "../../state/activitiesSlice";
+import { setOwner, setRepo, setPath, setMessage } from "../../state/githubSlice";
 import type { ActivityModel } from "../../models/ActivityModel";
 // import { addFolder } from "../../state/foldersSlice"; // uncomment if you have this
 
@@ -24,11 +26,13 @@ const methodColor = (m: string) =>
 const GitHubImportSection: React.FC = () => {
   const dispatch = useAppDispatch();
   const token = useAppSelector((state: any) => state.github?.token);
+  const state = useAppSelector((state: any) => state);
 
   // ── form state ──
-  const [owner, setOwner]   = useState("Clasherzz");
-  const [repo, setRepo]     = useState("testCallSensei");
-  const [path, setPath]     = useState("activities.json");
+  const owner = useAppSelector((state: any) => state.github?.owner);
+  const repo = useAppSelector((state: any) => state.github?.repo);
+  const path = useAppSelector((state: any) => state.github?.path);
+  const message = useAppSelector((state: any) => state.github?.message);
 
   // ── pull results ──
   const [pulledActivities, setPulledActivities] = useState<PulledActivity[]>([]);
@@ -39,8 +43,11 @@ const GitHubImportSection: React.FC = () => {
 
   // ── ui state ──
   const [status, setStatus]   = useState<Status>("idle");
+  const [pushStatus, setPushStatus] = useState<Status>("idle");
   const [error, setError]     = useState<string>("");
+  const [pushError, setPushError] = useState<string>("");
   const [imported, setImported] = useState(false);
+  const [pushed, setPushed] = useState(false);
 
   // ── helpers ──────────────────────────────────────────────────────────────────
   const toggleId = (id: string) =>
@@ -104,6 +111,33 @@ const GitHubImportSection: React.FC = () => {
 
     setImported(true);
     setSelectedIds([]);
+  };
+
+  // ── push ─────────────────────────────────────────────────────────────────────
+  const handlePush = async () => {
+    if (!token) { setPushError("You must be logged in to GitHub first."); return; }
+    setPushStatus("loading");
+    setPushError("");
+    setPushed(false);
+
+    try {
+      const json = buildActivitiesJson(state);
+      const encoded = encodeForGitHub(json);
+      await pushActivitiesToGitHub({
+        token,
+        owner,
+        repo,
+        path,
+        message,
+        content: encoded,
+        sha: sha || undefined, // use sha if available for update
+      });
+      setPushStatus("success");
+      setPushed(true);
+    } catch (e: any) {
+      setPushError(e.message ?? "Unknown error");
+      setPushStatus("error");
+    }
   };
 
   // ── render ────────────────────────────────────────────────────────────────────
@@ -191,17 +225,18 @@ const GitHubImportSection: React.FC = () => {
       </div>
 
       {/* ── Repo config ── */}
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-4 gap-2">
         {[
           { label: "Owner", value: owner, set: setOwner, placeholder: "Clasherzz" },
           { label: "Repo",  value: repo,  set: setRepo,  placeholder: "testCallSensei" },
           { label: "Path",  value: path,  set: setPath,  placeholder: "activities.json" },
+          { label: "Message", value: message, set: setMessage, placeholder: "Update activities" },
         ].map(({ label, value, set, placeholder }) => (
           <div key={label}>
             <label className="block text-xs text-white/50 mb-1">{label}</label>
             <input
               value={value}
-              onChange={(e) => set(e.target.value)}
+              onChange={(e) => dispatch(set(e.target.value))}
               placeholder={placeholder}
               className="w-full px-2.5 py-1.5 text-sm bg-[#101022] text-white rounded border border-white/10
                 focus:outline-none focus:ring-2 focus:ring-blue-500/60 placeholder:text-white/20"
@@ -211,39 +246,73 @@ const GitHubImportSection: React.FC = () => {
       </div>
 
       {/* ── Pull button ── */}
-      <button
-        type="button"
-        onClick={handlePull}
-        disabled={status === "loading" || !token}
-        className="flex items-center gap-2 px-3 py-2 rounded bg-[#101022] border border-white/10
-          text-sm text-white/80 hover:text-white hover:border-white/20 transition
-          disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        {status === "loading" ? (
-          <>
-            <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" strokeOpacity="0.25" />
-              <path d="M12 2a10 10 0 010 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-            </svg>
-            Fetching…
-          </>
-        ) : (
-          <>
-            <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
-                0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
-                -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66
-                .07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15
-                -.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.65 7.65 0 012-.27c.68 0
-                1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56
-                .82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0
-                1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-            </svg>
-            Pull from GitHub
-          </>
-        )}
-      </button>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={handlePull}
+          disabled={status === "loading" || !token}
+          className="flex items-center gap-2 px-3 py-2 rounded bg-[#101022] border border-white/10
+            text-sm text-white/80 hover:text-white hover:border-white/20 transition
+            disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {status === "loading" ? (
+            <>
+              <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" strokeOpacity="0.25" />
+                <path d="M12 2a10 10 0 010 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+              Fetching…
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+                  0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
+                  -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66
+                  .07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15
+                  -.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.65 7.65 0 012-.27c.68 0
+                  1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56
+                  .82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0
+                  1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+              </svg>
+              Pull from GitHub
+            </>
+          )}
+        </button>
 
+        <button
+          type="button"
+          onClick={handlePush}
+          disabled={pushStatus === "loading" || !token}
+          className="flex items-center gap-2 px-3 py-2 rounded bg-[#101022] border border-white/10
+            text-sm text-white/80 hover:text-white hover:border-white/20 transition
+            disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          {pushStatus === "loading" ? (
+            <>
+              <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" strokeOpacity="0.25" />
+                <path d="M12 2a10 10 0 010 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+              Pushing…
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+                  0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
+                  -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66
+                  .07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15
+                  -.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.65 7.65 0 012-.27c.68 0
+                  1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56
+                  .82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0
+                  1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+              </svg>
+              Push to GitHub
+            </>
+          )}
+        </button>
+      </div>
       {!token && (
         <p className="text-xs text-amber-400/80">⚠ Connect your GitHub account first (Settings → General).</p>
       )}
@@ -252,6 +321,13 @@ const GitHubImportSection: React.FC = () => {
       {status === "error" && (
         <div className="text-xs text-red-400 bg-red-400/10 border border-red-400/20 rounded px-3 py-2">
           {error}
+        </div>
+      )}
+
+      {/* ── Push Error ── */}
+      {pushStatus === "error" && (
+        <div className="text-xs text-red-400 bg-red-400/10 border border-red-400/20 rounded px-3 py-2">
+          {pushError}
         </div>
       )}
 
@@ -296,6 +372,14 @@ const GitHubImportSection: React.FC = () => {
                   <path d="M2 6l3 3 5-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 Imported!
+              </span>
+            )}
+            {pushed && (
+              <span className="text-xs text-emerald-400 flex items-center gap-1">
+                <svg className="w-3.5 h-3.5" viewBox="0 0 12 12" fill="none">
+                  <path d="M2 6l3 3 5-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                Pushed!
               </span>
             )}
           </div>

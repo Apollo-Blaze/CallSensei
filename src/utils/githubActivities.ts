@@ -87,7 +87,7 @@ import type githubSlice  from '../state/githubSlice';
   // Example usage
 import { store } from '../state/store';
 import  ActivitiesState  from '../state/activitiesSlice';
-import { buildActivitiesJson } from './BuildActivitiesJson';
+import { buildActivitiesJson, buildIndividualActivity } from './BuildActivitiesJson';
 
 
 export async function handlePush() {
@@ -106,6 +106,32 @@ export async function handlePush() {
     repo: 'testCallSensei',
     path: 'activities2.json',
     message: 'Update activities',
+    content: encoded,
+    // sha: existingFileSha (only needed if updating)
+  });
+}
+
+export async function handlePushIndividualActivity(activityId: string) {
+  console.log("inside handlePushIndividualActivity", activityId);
+  const state = store.getState();
+  const token = state.github.token;
+
+  if (!token) throw new Error('Not logged in');
+
+  const activity = state.activities.activities.find(a => a.id === activityId);
+  if (!activity) throw new Error('Activity not found');
+
+  const json = buildIndividualActivity(activity);
+  const encoded = encodeForGitHub(json);
+
+  const { owner, repo, path, message } = state.github;
+
+  await pushActivitiesToGitHub({
+    token,
+    owner,
+    repo,
+    path,
+    message,
     content: encoded,
     // sha: existingFileSha (only needed if updating)
   });

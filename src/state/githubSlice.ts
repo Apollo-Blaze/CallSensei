@@ -67,10 +67,26 @@ const githubSlice = createSlice({
     token: loadGitHubToken(),
     modelContent: '',
     status: 'idle',
+    owner: 'Clasherzz',
+    repo: 'testCallSensei',
+    path: 'activities.json',
+    message: 'Update activities',
   },
   reducers: {
     setToken(state, action) {
       state.token = action.payload;
+    },
+    setOwner(state, action) {
+      state.owner = action.payload;
+    },
+    setRepo(state, action) {
+      state.repo = action.payload;
+    },
+    setPath(state, action) {
+      state.path = action.payload;
+    },
+    setMessage(state, action) {
+      state.message = action.payload;
     },
     pushActivity(){
       console.log("inside github slice push");
@@ -92,5 +108,5 @@ const githubSlice = createSlice({
   },
 });
 
-export const { setToken } = githubSlice.actions;
+export const { setToken, setOwner, setRepo, setPath, setMessage } = githubSlice.actions;
 export default githubSlice.reducer;

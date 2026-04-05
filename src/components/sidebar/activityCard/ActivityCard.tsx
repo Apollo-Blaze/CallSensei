@@ -1,6 +1,6 @@
 import React from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { handlePush as handlePushGithub } from "../../../utils/githubActivities";
+import { handlePushIndividualActivity } from "../../../utils/githubActivities";
 import { duplicateActivity, deleteActivity, renameActivity, setSelectedActivity } from "../../../state/activitiesSlice";
 import type { ActivityModel } from "../../../models/ActivityModel";
 import type { RootState } from "../../../state/store";
@@ -73,7 +73,7 @@ const ActivityCard: React.FC<ActivityCardProps> = ({ activity, selectedId, onSel
 
       {/* Push + menu */}
       <div className="flex items-center justify-between w-full overflow-hidden gap-2">
-        <button type="button" onClick={(e) => { e.stopPropagation(); handlePushGithub(); }}
+        <button type="button" onClick={(e) => { e.stopPropagation(); handlePushIndividualActivity(activity.id); }}
           title="Push to GitHub"
           className="flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[0.65rem] font-medium transition-all duration-150 focus:outline-none"
           style={{ color: "#64748b", background: "rgba(15,23,42,0.4)", backdropFilter: "blur(8px)", border: "1px solid rgba(148,163,184,0.12)", boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}

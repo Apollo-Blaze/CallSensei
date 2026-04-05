@@ -9,7 +9,7 @@ import {
 import { updateActivity, renameActivity } from "../state/activitiesSlice";
 import { generateAiExplanation } from "../services/aiService";
 import { getSetting, SETTINGS_KEYS } from "./settings";
-
+let currentController: AbortController | null = null;
 interface RequestData {
   method: RequestMethod;
   url: string;
@@ -26,6 +26,7 @@ interface NetworkUtils {
     setAIExplanation: (explanation: string) => void,
     abortController?: AbortController
   ) => Promise<void>;
+  cancelCurrentRequest: () => void;
 }
 
 export const networkUtils: NetworkUtils = {
@@ -62,14 +63,25 @@ export const networkUtils: NetworkUtils = {
     if (aiEnabled) setAIExplanation("Analyzing request...");
 
     try {
+          // Abort any previous in-flight request first
+          if (currentController) {
+            currentController.abort();
+        }
+        const controller = new AbortController();
+        currentController = controller;
+
       const res = await fetch(reqData.url, {
         method:  reqData.method,
         headers: reqData.headers,
         body:    ["POST", "PUT", "PATCH"].includes(reqData.method) ? reqData.body : undefined,
-        signal:  internalController.signal,
+        signal: controller.signal,
       });
 
       clearTimeout(timeoutId);
+          // Clear controller when request finishes successfully
+          if (currentController === controller) {
+            currentController = null;
+        }
 
       const resBody         = await res.text();
       const responseHeaders = Object.fromEntries(res.headers.entries());
@@ -126,6 +138,10 @@ export const networkUtils: NetworkUtils = {
       }
 
     } catch (e) {
+      if ((e as any)?.name === "AbortError") {
+        setAIExplanation("Request cancelled.");
+        return;
+    }
       clearTimeout(timeoutId);
 
       const err         = e as Error;
@@ -173,4 +189,11 @@ export const networkUtils: NetworkUtils = {
       }
     }
   },
+
+  cancelCurrentRequest: () => {
+    if (currentController) {
+        currentController.abort();
+        currentController = null;
+    }
+},
 };

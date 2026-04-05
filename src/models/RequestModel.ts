@@ -3,6 +3,11 @@ export interface RequestModel {
     name?: string;
     method: RequestMethod;
     url: string;
+    /**
+     * Parsed query parameters for the request URL.
+     * This is kept in sync with the URL string by the UI layer.
+     */
+    queryParams?: Record<string, string>;
     headers: Record<string, string>;
     body: string;
     timestamp: string;
@@ -16,6 +21,7 @@ export type RequestMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD'
 export interface RequestFormData {
     method: RequestMethod;
     url: string;
+    queryParams?: Record<string, string>;
     headers: Record<string, string>;
     body: string;
 }
@@ -66,6 +72,7 @@ export const createRequest = (data: CreateRequestData): RequestModel => {
         name: data.name || 'New Request',
         method: data.method,
         url: data.url,
+        queryParams: data.queryParams || {},
         headers: data.headers || {},
         body: data.body || '',
         timestamp: data.timestamp || new Date().toISOString(),

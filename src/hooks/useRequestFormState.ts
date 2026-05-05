@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 
 import { useSelector, useDispatch, type TypedUseSelectorHook } from 'react-redux';
-import type { ActivityModel, RequestMethod } from '../models';
+import type { RequestMethod } from '../models';
+import type { ActivityModel } from '../models/ActivityModel';
 import type { RootState, AppDispatch } from '../state/store';
 
 export const useAppDispatch = () => useDispatch<AppDispatch>();

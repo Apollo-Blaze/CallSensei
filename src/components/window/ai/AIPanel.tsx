@@ -63,6 +63,7 @@ const AIPanel: React.FC<AIPanelProps> = ({
 
   // Ref to the chat CONTAINER div — we scroll this, not the document
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Scroll only the chat container to the bottom on new messages
   useEffect(() => {
@@ -70,6 +71,18 @@ const AIPanel: React.FC<AIPanelProps> = ({
     if (!el) return;
     el.scrollTop = el.scrollHeight;
   }, [messages]);
+
+  // Focus the input when the panel opens
+  useEffect(() => {
+    if (isOpen) {
+      setIsBusy(false);
+      setTimeout(() => {
+        if (inputRef.current) {
+          inputRef.current.focus();
+        }
+      }, 100); // Small delay to ensure the portal has rendered
+    }
+  }, [isOpen]);
 
   const activities = useSelector(
     (state: RootState) => state.activities.activities as ActivityModel[]
@@ -205,8 +218,7 @@ const AIPanel: React.FC<AIPanelProps> = ({
     } finally { setIsBusy(false); }
   };
 
-  const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSend = async () => {
     const text = input.trim();
     if (!text) return;
     const req = buildRequestSummary();
@@ -215,8 +227,25 @@ const AIPanel: React.FC<AIPanelProps> = ({
     pushMessage("user", text);
     setIsBusy(true);
     onSetExplanation("Thinking...");
+
+    const contextKey = `callsensei.aiContext.${currentActivity?.id}`;
+    let terminalOutput = "";
+    let editorFilePath = "";
+    let editorFileContent = "";
     try {
-      const result = await generateAiExplanation({ request: req || undefined, response: req ? (res || undefined) : undefined, userQuestion: text, mode: "chat", history: messages, activityName, activityId });
+      const raw = localStorage.getItem(contextKey);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { terminalOutput?: string; editorFilePath?: string; editorFileContent?: string };
+        terminalOutput = parsed.terminalOutput || "";
+        editorFilePath = parsed.editorFilePath || "";
+        editorFileContent = parsed.editorFileContent || "";
+      }
+    } catch {
+      // Optional context only.
+    }
+
+    try {
+      const result = await generateAiExplanation({ request: req || undefined, response: req ? (res || undefined) : undefined, userQuestion: text, mode: "chat", history: messages, activityName, activityId, terminalOutput, editorFilePath, editorFileContent });
       onSetExplanation(result);
       pushMessage("ai", result);
     } finally { setIsBusy(false); }
@@ -352,20 +381,25 @@ const AIPanel: React.FC<AIPanelProps> = ({
       </div>
 
       {/* ── Chat input ── */}
-      <form
-        onSubmit={handleSend}
-        className="flex-shrink-0 px-3 pt-3 pb-2 border-b border-slate-800/80 flex items-center space-x-2 bg-slate-950/70"
-      >
+      <div className="flex-shrink-0 px-3 pt-3 pb-2 border-b border-slate-800/80 flex items-center space-x-2 bg-slate-950/70">
         <input
+          ref={inputRef}
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              handleSend();
+            }
+          }}
           placeholder={currentRequest ? "Ask about this request/response..." : "Ask the AI anything..."}
           className="flex-1 bg-slate-900/80 text-white text-xs px-3 py-2 rounded outline-none border border-slate-700 focus:border-cyan-400"
           disabled={isBusy}
         />
         <button
-          type="submit"
+          type="button"
+          onClick={handleSend}
           disabled={!input.trim() || isBusy}
           className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-semibold px-3 py-2 rounded disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-cyan-500/60"
         >
@@ -380,7 +414,7 @@ const AIPanel: React.FC<AIPanelProps> = ({
         >
           Apply
         </button>
-      </form>
+      </div>
 
       {/* ── Scrollable body ── */}
       <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar">

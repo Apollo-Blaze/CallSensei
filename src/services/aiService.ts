@@ -18,6 +18,7 @@ let cachedModel: ChatModelLike | null = null;
 let cachedSignature: string | null = null;
 
 function resolveProvider(): AiProvider {
+    
     const fromSettings = getSetting(SETTINGS_KEYS.AI_PROVIDER) as AiProvider | null;
     if (fromSettings === "openai" || fromSettings === "groq" || fromSettings === "gemini") {
         return fromSettings;
@@ -250,6 +251,9 @@ interface AiExplanationArgs {
     history?: AiChatTurn[];
     activityName?: string;
     activityId?: string;
+    terminalOutput?: string;
+    editorFilePath?: string;
+    editorFileContent?: string;
 }
 
 const truncateBody = (body: string, limit = 2000) =>
@@ -404,6 +408,9 @@ export async function generateAiExplanation({
     history,
     activityName,
     activityId,
+    terminalOutput,
+    editorFilePath,
+    editorFileContent,
 }: AiExplanationArgs): Promise<string> {
     try {
         const chatModel = getModel();
@@ -430,7 +437,8 @@ Limit yourself to 5-7 short bullet points.`;
             }
             if (mode === "chat") {
                 return `You are an expert API assistant having an interactive conversation with a developer.
-Use the request/response as context, but Only answer the user's latest question based on the context provided.
+Use the request/response as context, and also consider any provided terminal output or editor file content for additional context.
+Only answer the user's latest question based on the context provided.
 Be concise, practical, and avoid repeating previously obvious details unless they are directly relevant. If the context is not provided and the question is related to API in general, explain it.`;
             }
             // default "auto"
@@ -461,11 +469,26 @@ Keep the tone concise (3-4 sentences) and actionable.`;
 
         const errorSection = errorMessage ? `Error: ${errorMessage}` : "";
 
+        const terminalSection = terminalOutput
+            ? `Terminal Output (recent):
+${truncateBody(terminalOutput, 5000)}`
+            : "";
+
+        const editorSection =
+            editorFilePath || editorFileContent
+                ? `Editor File:
+- Path: ${editorFilePath || "Unknown"}
+- Content:
+\`\`\`
+${truncateBody(editorFileContent || "", 8000)}
+\`\`\``
+                : "";
+
         const baseContext = `${activitySection ? activitySection + "\n\n" : ""}${requestSection}
 
 ${responseSection}
 
-${errorSection}`.trim();
+${errorSection ? errorSection + "\n\n" : ""}${terminalSection ? terminalSection + "\n\n" : ""}${editorSection ? editorSection + "\n\n" : ""}`.trim();
 
         const userPrompt =
             mode === "chat" && userQuestion

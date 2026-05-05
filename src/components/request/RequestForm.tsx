@@ -7,6 +7,7 @@ import type { BodyType } from "../../consts";
 import "./RequestForm.css";
 import type { RequestMethod } from "../../models";
 import { getSetting, setSetting, SETTINGS_KEYS } from "../../utils/settings";
+import GenerateCodeModal from "./GenerateCodeModal";
 
 // ── Method colour palette ─────────────────────────────────────────────────────
 const METHOD_CONFIG: Record<string, { color: string; glow: string; bg: string; border: string; glassGlow: string }> = {
@@ -286,6 +287,7 @@ const HeadersTab: React.FC<{ headers: Record<string, string>; onChange: (h: Reco
   );
 };
 
+
 // ── Body tab ──────────────────────────────────────────────────────────────────
 const BODY_TYPES: { value: BodyType; label: string }[] = [
   { value: "none", label: "None" },
@@ -489,6 +491,7 @@ const RequestForm: React.FC<{ selectedId: string | null; setAIExplanation: (s: s
     setQueryParams(next);
     setUrl(prev => buildUrlWithParams(prev, next));
   };
+  const [showCodeModal, setShowCodeModal] = useStateR(false);
   const [tab,       setTab]       = useStateR<Tab>("params");
   const [bodyType,  setBodyType]  = useStateR<BodyType>("json");
   const [variables, setVariables] = useStateR<Record<string, string>>({});
@@ -515,7 +518,7 @@ const RequestForm: React.FC<{ selectedId: string | null; setAIExplanation: (s: s
   }, []);
   const cfg = getCfg(method);
   const bodyIsJson = bodyType === "json" && isValidJson(body);
-
+   
   React.useEffect(() => { if (bodyType !== "json") setPrettyBody(false); }, [bodyType]);
   React.useEffect(() => { if (!bodyIsJson) setPrettyBody(false); }, [bodyIsJson]);
 
@@ -592,7 +595,12 @@ const RequestForm: React.FC<{ selectedId: string | null; setAIExplanation: (s: s
   const headerCount = Object.keys(headers).filter(k => k.trim()).length;
   const paramCount  = Object.keys(queryParams).filter(k => k.trim()).length;
   const bodySet     = bodyType !== "none" && body.trim().length > 0;
-
+  const requestData = {
+  method,
+  url: buildUrlWithParams(url, queryParams),
+  headers,
+  body: bodyType === "none" ? "" : substituteVariables(body, variables),
+};
   return (
     <form className="tour-request-form flex flex-col gap-3 h-full overflow-hidden" onSubmit={handleSubmit}>
 
@@ -650,6 +658,18 @@ const RequestForm: React.FC<{ selectedId: string | null; setAIExplanation: (s: s
             <span>Send</span>
           </button>
         )}
+        <button
+  type="button"
+  onClick={() => setShowCodeModal(true)}
+  className="flex-shrink-0 px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wide transition-all duration-200"
+  style={{
+    color: "#c084fc",
+    background: "rgba(192,132,252,0.08)",
+    border: "1px solid rgba(192,132,252,0.25)",
+  }}
+>
+  Code
+</button>
 
         {/* AI toggle — show a brain icon, glows cyan when ON */}
         <button type="button" onClick={handleAiToggle} title={aiAutoAnalyze ? "AI analysis ON — click to disable" : "AI analysis OFF — click to enable"}
@@ -705,7 +725,11 @@ const RequestForm: React.FC<{ selectedId: string | null; setAIExplanation: (s: s
           )}
         </div>
       </div>
-
+    <GenerateCodeModal
+  isOpen={showCodeModal}
+  onClose={() => setShowCodeModal(false)}
+  requestData={requestData}
+/>
 
     </form>
   );
